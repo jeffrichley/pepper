@@ -1,0 +1,18 @@
+# Environment
+.env
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code state
+.claude/data/
+*.db
+
+# Python
+__pycache__/
+*.pyc
+
+# Generated plans
+.agent/
