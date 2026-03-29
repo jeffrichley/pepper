@@ -137,20 +137,8 @@ Your choice in the requirements template shapes the entire system:
 | **Assistant** | Auto-organizes files, auto-logs decisions. Asks for anything external. |
 | **Partner** | Sends low-risk messages, completes routine tasks. Asks only for irreversible actions. |
 
-## Cost
-
-Running the full system costs roughly $105-130/month:
-- Claude Max subscription: ~$100/mo
-- VPS (optional): $5-24/mo
-- Obsidian: Free
-- All embeddings: Local (no API costs)
-
 ## Learn More
 
 - **Full workshop:** Join the [Dynamous community](https://dynamous.ai) for a 4-hour hands-on workshop covering every module
 - **Claude Agent SDK:** [Documentation](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/sdk)
 - **Obsidian:** [obsidian.md](https://obsidian.md)
-
-## License
-
-MIT
