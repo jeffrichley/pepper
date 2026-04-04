@@ -17,3 +17,6 @@ __pycache__/
 # Generated plans
 .agent/
 .gstack/
+
+# Worktrees
+.worktrees/
