@@ -1,19 +1,12 @@
 """Tests for Google Calendar module."""
 
-import importlib.util
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-# Load the calendar module directly from file to avoid shadowing stdlib calendar
-_scripts_dir = Path(__file__).parent.parent / ".claude" / "skills" / "google" / "scripts"
-_cal_path = _scripts_dir / "calendar.py"
-_spec = importlib.util.spec_from_file_location("google_calendar", _cal_path)
-_cal_mod = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_cal_mod)
-sys.modules["google_calendar"] = _cal_mod
+sys.path.insert(0, str(Path(__file__).parent.parent / ".claude" / "skills" / "google" / "scripts"))
 
 
 @pytest.fixture
@@ -72,7 +65,7 @@ def mock_service():
 
 
 def test_list_events(mock_service):
-    from google_calendar import list_events
+    from gcal import list_events
 
     events = list_events(mock_service, "2026-04-07", "2026-04-08")
     assert len(events) == 2
@@ -81,7 +74,7 @@ def test_list_events(mock_service):
 
 
 def test_list_events_all_day(mock_service):
-    from google_calendar import list_events
+    from gcal import list_events
 
     events = list_events(mock_service, "2026-04-07", "2026-04-08")
     all_day = [e for e in events if e.get("all_day")]
@@ -90,7 +83,7 @@ def test_list_events_all_day(mock_service):
 
 
 def test_get_freebusy(mock_service):
-    from google_calendar import get_freebusy
+    from gcal import get_freebusy
 
     result = get_freebusy(mock_service, "2026-04-07", "2026-04-08")
     assert "busy" in result
@@ -99,7 +92,7 @@ def test_get_freebusy(mock_service):
 
 
 def test_compute_free_slots():
-    from google_calendar import compute_free_slots
+    from gcal import compute_free_slots
 
     busy = [
         {"start": "2026-04-07T09:00:00-04:00", "end": "2026-04-07T09:30:00-04:00"},
@@ -110,7 +103,7 @@ def test_compute_free_slots():
 
 
 def test_create_event(mock_service):
-    from google_calendar import create_event
+    from gcal import create_event
 
     result = create_event(
         mock_service,
@@ -123,7 +116,7 @@ def test_create_event(mock_service):
 
 
 def test_delete_event(mock_service):
-    from google_calendar import delete_event
+    from gcal import delete_event
 
     mock_service.events.return_value.delete.return_value.execute.return_value = None
     delete_event(mock_service, "event1")
@@ -131,7 +124,7 @@ def test_delete_event(mock_service):
 
 
 def test_list_calendars(mock_service):
-    from google_calendar import list_calendars
+    from gcal import list_calendars
 
     calendars = list_calendars(mock_service)
     assert len(calendars) == 2

@@ -6,11 +6,8 @@ Usage: uv --directory .claude/skills/google/scripts run python pg.py [command]
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Optional
 
 import typer
@@ -18,16 +15,7 @@ from rich.console import Console
 from zoneinfo import ZoneInfo
 
 from auth import auth_status, get_credentials, login
-
-# Load calendar module via importlib to avoid shadowing stdlib calendar
-_scripts_dir = Path(__file__).parent
-_cal_path = _scripts_dir / "calendar.py"
-_spec = importlib.util.spec_from_file_location("google_calendar", _cal_path)
-_cal_mod = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_cal_mod)
-sys.modules["google_calendar"] = _cal_mod
-
-from google_calendar import (  # noqa: E402
+from gcal import (
     create_event,
     delete_event,
     get_freebusy,
