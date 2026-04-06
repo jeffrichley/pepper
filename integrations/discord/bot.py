@@ -3,6 +3,8 @@
 Listens for messages in DMs and channels the bot is in.
 Posts them to the channel server. Reads replies from the SSE stream
 and sends them back to Discord.
+
+This module is imported by mcp_server.py. Do not run directly.
 """
 
 from __future__ import annotations
@@ -15,10 +17,9 @@ from typing import Any
 import discord
 import httpx
 
-from config import CHANNEL_URL, DISCORD_BOT_TOKEN
+from config import CHANNEL_URL
 from embeds import build_embed
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("pepper-discord")
 
 # --- Discord client setup ---
@@ -245,18 +246,13 @@ async def keep_typing():
                 pending_chat_ids.pop(chat_id, None)
 
 
-@client.event
-async def on_connect():
-    """Start background tasks after connecting."""
-    client.loop.create_task(listen_for_replies())
-    client.loop.create_task(keep_typing())
+async def start_bot(token: str):
+    """Start the Discord bot as an async task.
 
-
-def main():
-    """Entry point."""
-    log.info("Starting Pepper Discord bot...")
-    client.run(DISCORD_BOT_TOKEN, log_handler=None)
-
-
-if __name__ == "__main__":
-    main()
+    Call this from the MCP server lifespan. Uses client.start()
+    which is the async version of client.run().
+    """
+    log.info("Starting Discord bot...")
+    asyncio.create_task(listen_for_replies())
+    asyncio.create_task(keep_typing())
+    await client.start(token)
