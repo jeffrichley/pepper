@@ -33,6 +33,9 @@ integrations/**/.env
 # PID files for launch scripts
 .pids/
 
+# Scheduler database
+integrations/discord/scheduler.db
+
 # Bun lockfile
 channel/bun.lockb
 

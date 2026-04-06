@@ -45,6 +45,19 @@ Entries use: `## HH:MM [source] (session: <id>)` where source is `session`, `pre
 - Global inbox: `Memory/TASKS.md`
 - Per-project tasks: `projects/{org}/{project}/tasks.md`
 
+## Discord Channels
+- #pepper-chat (1488680018077945978) — Pepper's home: briefings, system messages, proactive updates
+- #job-niwc (1488702541267996772) — NIWC Atlantic work, deadlines, WAR reports
+- #business-etsy (1488685331720048700) — Daku Press Etsy operations
+- #business-chrona (1488718518248673423) — Chrona Network projects
+- #ideas (1488713028831543378) — Idea capture and brainstorming
+- #general (1229523821820772396) — General discussion
+
+When sending proactive messages, choose the channel that matches the topic.
+Use #pepper-chat for general briefings and system messages.
+Use list_channels() to discover new channels not listed here.
+Update this section when channels are added or repurposed.
+
 ## Spawning Sessions
 - Scheduled tasks use: `uv run python .claude/scripts/spawn_session.py`
 - Hooks do NOT fire on spawned sessions (`claude -p` is non-interactive)

@@ -3,6 +3,10 @@
     "pepper-channel": {
       "command": "bun",
       "args": ["./channel/pepper-channel.ts"]
+    },
+    "pepper-discord": {
+      "command": "uv",
+      "args": ["--directory", "./integrations/discord", "run", "python", "mcp_server.py"]
     }
   }
 }
