@@ -47,7 +47,9 @@ Entries use: `## HH:MM [source] (session: <id>)` where source is `session`, `pre
 
 ## Spawning Sessions
 - Scheduled tasks use: `uv run python .claude/scripts/spawn_session.py`
-- Hooks fire on spawned sessions (SessionStart injects Tier 1 context)
+- Hooks do NOT fire on spawned sessions (`claude -p` is non-interactive)
+- Spawned sessions get Tier 1 context via CLAUDE.md (loaded automatically)
+- For additional context, use `--append-system-prompt` in the spawn script
 
 ## Reflection Schedule
 - **Daily:** 3 AM ET — summarize raw logs → `daily/summaries/`
