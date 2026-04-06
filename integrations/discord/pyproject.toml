@@ -1,0 +1,15 @@
+[project]
+name = "pepper-discord"
+version = "0.1.0"
+description = "Pepper Discord bot — bridges Discord to the channel server"
+requires-python = ">=3.12"
+dependencies = [
+    "discord.py>=2.7.0",
+    "httpx>=0.28.0",
+    "python-dotenv>=1.2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+]
