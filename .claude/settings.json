@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(cd E:/workspaces/ai/pepper/.worktrees/foundation && *)",
+      "Bash(git -C E:/workspaces/ai/pepper/.worktrees/foundation *)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {

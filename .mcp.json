@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pepper-channel": {
+      "command": "bun",
+      "args": ["./channel/pepper-channel.ts"]
+    }
+  }
+}
