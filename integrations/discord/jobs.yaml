@@ -1,0 +1,34 @@
+heartbeat:
+  trigger: interval
+  schedule:
+    minutes: 30
+  prompt: >
+    Heartbeat check: Review pending tasks in Memory/TASKS.md, scan project
+    statuses for anything that needs attention. If anything is noteworthy,
+    send it to the appropriate Discord channel using send_discord_message.
+    Check Memory/OPERATIONS.md for channel mappings.
+  channel_hint: "#pepper-chat"
+
+morning_briefing:
+  trigger: cron
+  schedule:
+    hour: 7
+    minute: 0
+  prompt: >
+    Morning briefing for Jeff. Check project statuses, scan for upcoming
+    deadlines this week, summarize yesterday's activity from daily logs,
+    and list today's priorities. Send the briefing to the pepper-chat
+    Discord channel using send_discord_message with a rich embed.
+  channel_hint: "#pepper-chat"
+
+nightly_reflection:
+  trigger: cron
+  schedule:
+    hour: 3
+    minute: 0
+  prompt: >
+    Nightly reflection: Summarize today's raw logs from Memory/daily/raw/
+    into a daily summary. Write it to Memory/daily/summaries/ with pointer
+    links to raw entries. Identify patterns, decisions made, and open loops.
+    Send a brief summary to pepper-chat Discord channel.
+  channel_hint: "#pepper-chat"
