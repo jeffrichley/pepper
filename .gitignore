@@ -26,3 +26,15 @@ Memory/.obsidian/
 
 # Filelock lockfiles
 Memory/**/*.lock
+
+# Integration secrets
+integrations/**/.env
+
+# PID files for launch scripts
+.pids/
+
+# Bun lockfile
+channel/bun.lockb
+
+# Node modules
+channel/node_modules/
