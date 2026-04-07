@@ -46,7 +46,7 @@ async def test_send_discord_message(mock_client):
     result = await send_discord_message_impl(client, "123456", text="Hello!")
 
     # Assert - verify the message was sent correctly
-    channel.send.assert_called_once_with("Hello!", embed=None)
+    channel.send.assert_called_once_with("Hello!", embed=None, files=None)
     assert result["status"] == "sent"
 
 

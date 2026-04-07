@@ -7,9 +7,12 @@ are in mcp_server.py which calls these.
 from __future__ import annotations
 
 import logging
+import pathlib
+import tempfile
 from typing import Any
 
 import discord
+import httpx
 
 from .embeds import build_embed
 
@@ -67,30 +70,83 @@ async def _get_messageable(
     return channel
 
 
+async def _prepare_files(
+    file_paths: list[str] | None,
+) -> list[discord.File]:
+    """Convert file paths and URLs to discord.File objects."""
+    if not file_paths:
+        return []
+
+    files: list[discord.File] = []
+    for path_or_url in file_paths:
+        if path_or_url.startswith(("http://", "https://")):
+            file = await _download_url_to_file(path_or_url)
+            if file:
+                files.append(file)
+        else:
+            p = pathlib.Path(path_or_url)
+            if p.exists():
+                files.append(discord.File(str(p), filename=p.name))
+    return files
+
+
+async def _download_url_to_file(
+    url: str,
+) -> discord.File | None:
+    """Download a URL to a temp file and return a discord.File."""
+    try:
+        async with httpx.AsyncClient() as http:
+            resp = await http.get(
+                url,
+                timeout=30.0,
+                follow_redirects=True,
+            )
+            resp.raise_for_status()
+            name = url.rsplit("/", maxsplit=1)[-1].split("?", maxsplit=1)[0]
+            filename = name or "file"
+            path = tempfile.mktemp(suffix=f"_{filename}")
+            pathlib.Path(path).write_bytes(resp.content)
+            return discord.File(path, filename=filename)
+    except Exception:
+        return None
+
+
 async def send_discord_message_impl(
     client: discord.Client,
     channel_id: str,
     text: str = "",
     embed: dict[str, Any] | None = None,
+    files: list[str] | None = None,
 ) -> dict[str, str]:
-    """Send a message to a Discord channel."""
+    """Send a message to a Discord channel with optional file attachments."""
     channel = await _get_messageable(client, channel_id)
     if channel is None:
         return {"status": "error", "message": f"Channel {channel_id} not found"}
 
     discord_embed = build_embed(embed)
+    discord_files = await _prepare_files(files)
 
     if text and len(text) > DISCORD_MSG_LIMIT:
-        for i in range(0, len(text), DISCORD_MSG_LIMIT):
-            chunk = text[i : i + DISCORD_MSG_LIMIT]
-            chunk_embed = discord_embed if i + DISCORD_MSG_LIMIT >= len(text) else None
-            await channel.send(chunk, embed=chunk_embed)  # type: ignore[arg-type]
+        chunks = [
+            text[i : i + DISCORD_MSG_LIMIT]
+            for i in range(0, len(text), DISCORD_MSG_LIMIT)
+        ]
+        for i, chunk in enumerate(chunks):
+            is_last = i == len(chunks) - 1
+            await channel.send(  # type: ignore[arg-type]
+                chunk,
+                embed=discord_embed if is_last else None,
+                files=discord_files if is_last else None,
+            )
     elif text:
-        await channel.send(text, embed=discord_embed)  # type: ignore[arg-type]
-    elif discord_embed:
-        await channel.send(embed=discord_embed)
+        await channel.send(text, embed=discord_embed, files=discord_files or None)  # type: ignore[arg-type]
+    elif discord_embed or discord_files:
+        await channel.send(embed=discord_embed, files=discord_files or None)  # type: ignore[arg-type]
     else:
-        return {"status": "error", "message": "Either text or embed is required"}
+        return {
+            "status": "error",
+            "message": "Either text, embed, or files is required",
+        }
 
     return {"status": "sent", "channel_id": channel_id}
 
