@@ -51,9 +51,8 @@ def test_session_start_empty_file(temp_vault, mock_stdin_data):
 
 
 def _run_hook(vault_path: Path, stdin_data: str) -> str:
-    hook_path = Path(__file__).parent.parent / ".claude" / "hooks" / "session_start_context.py"
     result = subprocess.run(
-        [sys.executable, str(hook_path)],
+        [sys.executable, "-m", "pepper.hooks.session_start_context"],
         input=stdin_data,
         capture_output=True,
         text=True,

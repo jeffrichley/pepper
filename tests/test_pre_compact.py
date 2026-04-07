@@ -55,9 +55,8 @@ def test_pre_compact_no_transcript(temp_vault, mock_stdin_data):
 
 
 def _run_hook(vault_path: Path, stdin_data: str) -> str:
-    hook_path = Path(__file__).parent.parent / ".claude" / "hooks" / "pre_compact_flush.py"
     result = subprocess.run(
-        [sys.executable, str(hook_path)],
+        [sys.executable, "-m", "pepper.hooks.pre_compact_flush"],
         input=stdin_data,
         capture_output=True,
         text=True,

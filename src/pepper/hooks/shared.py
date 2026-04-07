@@ -5,6 +5,7 @@ and summary reading. All file operations use filelock for concurrency safety.
 """
 
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -21,16 +22,18 @@ TIER_1_FILES = [
 
 
 def get_vault_path() -> Path:
-    """Return the absolute path to the Memory vault."""
-    project_root = Path(__file__).parent.parent.parent
-    return project_root / "Memory"
+    """Return the absolute path to the Memory vault.
+
+    Uses PEPPER_VAULT_PATH env var if set, otherwise defaults to ~/.pepper/Memory.
+    """
+    override = os.environ.get("PEPPER_VAULT_PATH")
+    if override:
+        return Path(override)
+    return Path.home() / ".pepper" / "Memory"
 
 
 def read_tier1_files(vault_path: Path) -> str:
-    """Read and concatenate all Tier 1 files with separators.
-
-    Skips missing or empty files without error.
-    """
+    """Read and concatenate all Tier 1 files with separators."""
     parts = []
     for filename in TIER_1_FILES:
         filepath = vault_path / filename
@@ -53,10 +56,7 @@ def append_to_daily_log(
     source: str,
     session_id: str,
 ) -> None:
-    """Append a timestamped entry to today's raw daily log.
-
-    Uses filelock to prevent corruption from concurrent writes.
-    """
+    """Append a timestamped entry to today's raw daily log."""
     log_path = get_daily_log_path(vault_path)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     lock_path = log_path.with_suffix(".md.lock")

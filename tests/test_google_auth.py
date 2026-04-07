@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / ".claude" / "skills" / "google" / "scripts"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "pepper" / "skills" / "google" / "scripts"))
 
 
 def test_get_credentials_dir():

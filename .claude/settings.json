@@ -1,46 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cd E:/workspaces/ai/pepper/.worktrees/foundation && *)",
-      "Bash(git -C E:/workspaces/ai/pepper/.worktrees/foundation *)"
-    ]
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "uv run python $CLAUDE_PROJECT_DIR/.claude/hooks/session_start_context.py",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "uv run python $CLAUDE_PROJECT_DIR/.claude/hooks/pre_compact_flush.py",
-            "timeout": 15
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "uv run python $CLAUDE_PROJECT_DIR/.claude/hooks/session_end_flush.py",
-            "timeout": 15
-          }
-        ]
-      }
+      "Bash",
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep"
     ]
   }
 }

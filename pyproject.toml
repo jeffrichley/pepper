@@ -9,6 +9,8 @@ dependencies = [
     "google-api-python-client>=2.0.0",
     "google-auth-httplib2>=0.2.0",
     "google-auth-oauthlib>=1.0.0",
+    "jinja2>=3.1.6",
+    "mcp>=1.9.0",
     "pyqmd>=0.1.0",
     "python-dotenv>=1.2.2",
     "pyyaml>=6.0.3",
@@ -16,6 +18,10 @@ dependencies = [
     "typer>=0.24.1",
     "watchdog>=6.0.0",
 ]
+
+[project.scripts]
+pepper = "pepper.cli:app"
+pepper-channel = "pepper.channel.server:main"
 
 [dependency-groups]
 dev = [
@@ -29,7 +35,14 @@ dev = [
     "sqlalchemy[asyncio]>=2.0",
 ]
 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pepper"]
+
 [tool.pytest.ini_options]
-pythonpath = [".claude/hooks"]
+pythonpath = ["src"]
 asyncio_mode = "auto"
 markers = ["slow: tests that invoke real Claude Code sessions (cost API tokens)"]
