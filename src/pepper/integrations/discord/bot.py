@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 import discord
@@ -19,6 +20,7 @@ import httpx
 
 from .config import CHANNEL_URL
 from .embeds import build_embed
+from pepper.attachments import download_attachment
 
 log = logging.getLogger("pepper-discord")
 
@@ -67,18 +69,40 @@ async def on_message(message: discord.Message):
     chat_id = make_chat_id(message)
     is_dm = message.guild is None
 
+    # Download attachments and build content/metadata
+    content = message.content
+    attachment_infos = []
+    for att in message.attachments:
+        local_path = await download_attachment(
+            url=att.url,
+            filename=att.filename,
+            message_id=str(message.id),
+        )
+        if local_path:
+            attachment_infos.append({
+                "filename": att.filename,
+                "content_type": att.content_type or "unknown",
+                "path": str(local_path),
+                "size_bytes": local_path.stat().st_size,
+            })
+            content += f"\n[📎 {att.filename}]"
+
+    metadata = {
+        "guild_id": str(message.guild.id) if message.guild else "",
+        "channel_id": str(message.channel.id),
+        "message_id": str(message.id),
+        "is_dm": str(is_dm),
+        "author_id": str(message.author.id),
+    }
+    if attachment_infos:
+        metadata["attachments"] = json.dumps(attachment_infos)
+
     payload = {
         "source": "discord",
         "chat_id": chat_id,
         "sender": message.author.display_name,
-        "content": message.content,
-        "metadata": {
-            "guild_id": str(message.guild.id) if message.guild else "",
-            "channel_id": str(message.channel.id),
-            "message_id": str(message.id),
-            "is_dm": str(is_dm),
-            "author_id": str(message.author.id),
-        },
+        "content": content,
+        "metadata": metadata,
     }
 
     # Track the channel for typing indicator
@@ -193,19 +217,35 @@ async def handle_reply(data: dict[str, Any]):
     embed_data = metadata.get("embed")
     embed = build_embed(embed_data)
 
+    # Prepare outbound file attachments
+    files = []
+    outbound_attachments = metadata.get("attachments", [])
+    if isinstance(outbound_attachments, str):
+        try:
+            outbound_attachments = json.loads(outbound_attachments)
+        except json.JSONDecodeError:
+            outbound_attachments = []
+    for file_path in outbound_attachments:
+        p = Path(file_path)
+        if p.exists():
+            files.append(discord.File(str(p), filename=p.name))
+
     if text:
         # Discord has a 2000 char limit per message
         if len(text) <= 2000:
-            await channel.send(text, embed=embed)
+            await channel.send(text, embed=embed, files=files or None)
         else:
-            # Split into chunks
-            for i in range(0, len(text), 2000):
-                chunk = text[i:i + 2000]
-                # Only attach embed to the last chunk
-                chunk_embed = embed if i + 2000 >= len(text) else None
-                await channel.send(chunk, embed=chunk_embed)
-    elif embed:
-        await channel.send(embed=embed)
+            # Split into chunks, attach files to last chunk
+            chunks = [text[i:i + 2000] for i in range(0, len(text), 2000)]
+            for i, chunk in enumerate(chunks):
+                is_last = i == len(chunks) - 1
+                await channel.send(
+                    chunk,
+                    embed=embed if is_last else None,
+                    files=files if is_last else None,
+                )
+    elif embed or files:
+        await channel.send(text="" if files else None, embed=embed, files=files or None)
 
 
 # Common emoji name -> unicode mapping

@@ -21,6 +21,14 @@ morning_briefing:
     Discord channel using send_discord_message with a rich embed.
   channel_hint: "#pepper-chat"
 
+attachment_cleanup:
+  trigger: cron
+  schedule:
+    hour: 4
+    minute: 0
+  type: function
+  function: pepper.attachments:cleanup_attachments
+
 nightly_reflection:
   trigger: cron
   schedule:

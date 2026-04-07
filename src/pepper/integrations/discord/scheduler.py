@@ -58,6 +58,22 @@ def build_trigger(job_def: dict[str, Any]):
         raise ValueError(f"Unknown trigger type: {trigger_type}")
 
 
+async def execute_function_job(name: str, module_path: str):
+    """Execute a scheduled function job by importing and calling the function."""
+    try:
+        module_name, func_name = module_path.rsplit(":", 1)
+        import importlib
+        module = importlib.import_module(module_name)
+        func = getattr(module, func_name)
+        result = func()
+        # Handle both sync and async functions
+        if hasattr(result, "__await__"):
+            result = await result
+        log.info(f"Function job {name} completed: {result}")
+    except Exception as e:
+        log.error(f"Function job {name} failed: {e}")
+
+
 async def execute_job(name: str, prompt: str, channel_hint: str = ""):
     """Execute a scheduled job by POSTing to the channel server."""
     chat_id = f"scheduler-{name}-{int(time.time())}"
@@ -109,13 +125,24 @@ async def seed_default_jobs(scheduler: AsyncScheduler, yaml_path: Path):
             continue
 
         trigger = build_trigger(job_def)
-        prompt = job_def["prompt"]
-        channel_hint = job_def.get("channel_hint", "")
 
-        await scheduler.add_schedule(
-            execute_job,
-            trigger,
-            id=name,
-            args=[name, prompt, channel_hint],
-        )
+        if job_def.get("type") == "function":
+            # Direct Python function call (e.g., cleanup jobs)
+            func_path = job_def["function"]
+            await scheduler.add_schedule(
+                execute_function_job,
+                trigger,
+                id=name,
+                args=[name, func_path],
+            )
+        else:
+            # Default: prompt-based job via channel server
+            prompt = job_def["prompt"]
+            channel_hint = job_def.get("channel_hint", "")
+            await scheduler.add_schedule(
+                execute_job,
+                trigger,
+                id=name,
+                args=[name, prompt, channel_hint],
+            )
         log.info(f"Seeded job: {name}")

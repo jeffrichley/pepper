@@ -27,7 +27,10 @@ def test_jobs_yaml_required_fields():
     for name, job in jobs.items():
         assert "trigger" in job, f"Job {name} missing trigger"
         assert "schedule" in job, f"Job {name} missing schedule"
-        assert "prompt" in job, f"Job {name} missing prompt"
+        if job.get("type") == "function":
+            assert "function" in job, f"Function job {name} missing function"
+        else:
+            assert "prompt" in job, f"Job {name} missing prompt"
         assert job["trigger"] in ("interval", "cron", "once"), f"Job {name} has invalid trigger"
 
 
@@ -36,7 +39,7 @@ def test_load_seed_jobs():
     from pepper.integrations.discord.scheduler import load_seed_jobs
 
     jobs = load_seed_jobs(JOBS_YAML)
-    assert len(jobs) == 3
+    assert len(jobs) == 4
     assert "heartbeat" in jobs
     assert jobs["heartbeat"]["trigger"] == "interval"
     assert jobs["heartbeat"]["schedule"]["minutes"] == 30
