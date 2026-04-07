@@ -42,7 +42,7 @@ def remove_pid(pid_file: Path) -> None:
 
 def is_process_alive(pid: int) -> bool:
     """Check if a process with the given PID is running."""
-    return psutil.pid_exists(pid)
+    return bool(psutil.pid_exists(pid))
 
 
 def kill_process_tree(pid: int) -> None:

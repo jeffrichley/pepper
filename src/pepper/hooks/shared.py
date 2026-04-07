@@ -107,9 +107,10 @@ def read_recent_summaries(
     return "\n\n---\n\n".join(parts)
 
 
-def read_stdin() -> dict:
+def read_stdin() -> dict[str, object]:
     """Read and parse JSON from stdin (hook input)."""
-    return json.loads(sys.stdin.read())
+    result: dict[str, object] = json.loads(sys.stdin.read())
+    return result
 
 
 def write_stdout(data: dict) -> None:

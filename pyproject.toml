@@ -41,6 +41,7 @@ dev = [
     "pytest-drill-sergeant>=0.4.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.15.9",
+    "types-psutil>=7.2.2.20260402",
     "xenon>=0.9.3",
 ]
 
@@ -89,7 +90,12 @@ convention = "google"
 "tests/**/*.py" = [
     "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",
     "D200", "D205", "D400", "D401", "D415",
-    "ARG001", "ARG002",
+    "ARG001", "ARG002", "ARG005",
+    "PLC0415",  # deferred imports in test functions are normal
+    "PLR2004",  # magic values in assertions are readable
+    "PLW1510",  # subprocess.run without check — tests verify return codes
+    "E501",     # long assertion messages and fixture data
+    "F841",     # unused variables in test setup
 ]
 # Discord integration uses relative imports by design (sub-package)
 "src/pepper/integrations/discord/**/*.py" = ["TID252"]
@@ -100,7 +106,7 @@ convention = "google"
 ban-relative-imports = "all"
 
 [tool.ruff.lint.mccabe]
-max-complexity = 15
+max-complexity = 10
 
 # ---------------------------------------------------------------------------
 # MyPy
@@ -119,14 +125,13 @@ module = [
     "discord.*",
     "apscheduler.*",
     "mcp.*",
-    "pyqmd.*",
     "filelock.*",
     "google.*",
-    "googleapiclient.*",
     "google_auth_oauthlib.*",
     "httpx_sse.*",
 ]
 ignore_missing_imports = true
+
 
 # ---------------------------------------------------------------------------
 # pytest
@@ -148,7 +153,6 @@ addopts = [
     "-v",
     "--tb=short",
     "--strict-markers",
-    "-p", "no:drill_sergeant",  # TODO: enable after tests have AAA structure
 ]
 
 # ---------------------------------------------------------------------------
@@ -176,9 +180,9 @@ directory = "htmlcov"
 # drill-sergeant
 # ---------------------------------------------------------------------------
 [tool.drill_sergeant]
-enabled = false  # Phase 2: enable after tests are reorganized with markers and AAA structure
-enforce_markers = false
+enforce_markers = true
 enforce_markers_severity = "error"
+enforce_aaa = false
 enforce_file_length = true
 enforce_file_length_severity = "warn"
 max_file_length = 500
