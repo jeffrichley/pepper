@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import typer
-from auth import auth_status, get_credentials, login
-from gcal import (
+from auth import auth_status, get_credentials, login  # type: ignore[import-not-found]
+from gcal import (  # type: ignore[import-not-found]
     create_event,
     delete_event,
     get_freebusy,
@@ -31,9 +32,9 @@ console = Console(stderr=True)
 TIMEZONE = "US/Eastern"
 
 
-def _build_service():
+def _build_service() -> Any:
     """Build the Google Calendar service."""
-    from googleapiclient.discovery import build
+    from googleapiclient.discovery import build  # type: ignore[import-untyped]
 
     creds = get_credentials()
     return build("calendar", "v3", credentials=creds)
@@ -57,7 +58,7 @@ def _week_range() -> tuple[str, str]:
     return monday.strftime("%Y-%m-%d"), sunday.strftime("%Y-%m-%d")
 
 
-def _output(data, as_json: bool):
+def _output(data: Any, as_json: bool) -> None:
     """Print data as JSON to stdout or rich JSON to stderr."""
     if as_json:
         print(json.dumps(data, indent=2, default=str))
@@ -69,7 +70,7 @@ def _output(data, as_json: bool):
 
 
 @auth_app.command("login")
-def auth_login_cmd():
+def auth_login_cmd() -> None:
     """Authenticate with Google (opens browser)."""
     creds = login()
     console.print("[green]Authenticated successfully![/green]")
@@ -79,7 +80,7 @@ def auth_login_cmd():
 @auth_app.command("status")
 def auth_status_cmd(
     json_output: bool = typer.Option(False, "--json", help="JSON output"),
-):
+) -> None:
     """Check authentication status."""
     status = auth_status()
     _output(status, json_output)
@@ -100,7 +101,7 @@ def cal_events_cmd(
     calendar_id: str = typer.Option("primary", "--calendar", help="Calendar ID"),
     max_results: int = typer.Option(50, "--max", help="Max events"),
     json_output: bool = typer.Option(False, "--json", help="JSON output"),
-):
+) -> None:
     """List calendar events."""
     if date:
         start_date, end_date = date, date
@@ -126,7 +127,7 @@ def cal_freebusy_cmd(
     end: str | None = typer.Option(None, "--end", help="End date (YYYY-MM-DD)"),
     calendar_id: str = typer.Option("primary", "--calendar", help="Calendar ID"),
     json_output: bool = typer.Option(False, "--json", help="JSON output"),
-):
+) -> None:
     """Show free/busy blocks."""
     if date == "tomorrow":
         target = _tomorrow()
@@ -165,7 +166,7 @@ def cal_create_cmd(
     ),
     calendar_id: str = typer.Option("primary", "--calendar", help="Calendar ID"),
     json_output: bool = typer.Option(False, "--json", help="JSON output"),
-):
+) -> None:
     """Create a calendar event."""
     tz = ZoneInfo(TIMEZONE)
 
@@ -224,7 +225,7 @@ def cal_create_cmd(
 def cal_delete_cmd(
     event_id: str = typer.Argument(help="Event ID to delete"),
     calendar_id: str = typer.Option("primary", "--calendar", help="Calendar ID"),
-):
+) -> None:
     """Delete a calendar event."""
     delete_event(_build_service(), event_id, calendar_id)
     console.print(f"[green]Deleted event {event_id}[/green]")
@@ -233,7 +234,7 @@ def cal_delete_cmd(
 @cal_app.command("calendars")
 def cal_calendars_cmd(
     json_output: bool = typer.Option(False, "--json", help="JSON output"),
-):
+) -> None:
     """List available calendars."""
     service = _build_service()
     calendars = list_calendars(service)

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 TIMEZONE = os.environ.get("PG_TIMEZONE", "US/Eastern")
@@ -28,7 +28,7 @@ def _to_rfc3339(dt: datetime) -> str:
 
 
 def list_events(
-    service,
+    service: Any,
     start_date: str,
     end_date: str,
     calendar_id: str = "primary",
@@ -75,11 +75,11 @@ def list_events(
 
 
 def get_freebusy(
-    service,
+    service: Any,
     start_date: str,
     end_date: str,
     calendar_id: str = "primary",
-) -> dict[str, list]:
+) -> dict[str, list[Any]]:
     """Get free/busy information for a date range."""
     time_min = _to_rfc3339(_parse_date(start_date))
     time_max = _to_rfc3339(_parse_date(end_date) + timedelta(days=1))
@@ -103,7 +103,7 @@ def get_freebusy(
 
 
 def compute_free_slots(
-    busy: list[dict],
+    busy: list[dict[str, Any]],
     date_str: str,
     work_start: str,
     work_end: str,
@@ -129,7 +129,7 @@ def compute_free_slots(
             busy_pairs.append((b_start, b_end))
 
     busy_pairs.sort()
-    merged = []
+    merged: list[tuple[datetime, datetime]] = []
     for start, end in busy_pairs:
         if merged and start <= merged[-1][1]:
             merged[-1] = (merged[-1][0], max(merged[-1][1], end))
@@ -149,7 +149,7 @@ def compute_free_slots(
 
 
 def create_event(
-    service,
+    service: Any,
     summary: str,
     start: str,
     end: str,
@@ -176,11 +176,11 @@ def create_event(
     if attendees:
         body["attendees"] = [{"email": e} for e in attendees]
 
-    return service.events().insert(calendarId=calendar_id, body=body).execute()
+    return cast(dict[str, Any], service.events().insert(calendarId=calendar_id, body=body).execute())
 
 
 def delete_event(
-    service,
+    service: Any,
     event_id: str,
     calendar_id: str = "primary",
 ) -> None:
@@ -188,7 +188,7 @@ def delete_event(
     service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
 
 
-def list_calendars(service) -> list[dict[str, Any]]:
+def list_calendars(service: Any) -> list[dict[str, Any]]:
     """List all calendars the user has access to."""
     result = service.calendarList().list(maxResults=100).execute()
     return [

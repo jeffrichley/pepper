@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -52,7 +53,7 @@ def load_credentials() -> Credentials | None:
     if not token_path.exists():
         return None
 
-    creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+    creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)  # type: ignore[no-untyped-call]
 
     if creds and creds.expired and creds.refresh_token:
         try:
@@ -62,7 +63,7 @@ def load_credentials() -> Credentials | None:
             return None
 
     if creds and creds.valid:
-        return creds
+        return cast(Credentials, creds)
 
     return None
 
@@ -71,7 +72,7 @@ def save_credentials(creds: Credentials) -> None:
     """Save credentials to token.json."""
     token_path = get_token_path()
     token_path.parent.mkdir(parents=True, exist_ok=True)
-    token_path.write_text(creds.to_json())
+    token_path.write_text(creds.to_json())  # type: ignore[no-untyped-call]
 
 
 def login() -> Credentials:
@@ -93,7 +94,7 @@ def login() -> Credentials:
     flow = InstalledAppFlow.from_client_secrets_file(str(client_secret), SCOPES)
     creds = flow.run_local_server(port=8080)
     save_credentials(creds)
-    return creds
+    return cast(Credentials, creds)
 
 
 def get_credentials() -> Credentials:
@@ -106,7 +107,7 @@ def get_credentials() -> Credentials:
     sys.exit(1)
 
 
-def auth_status() -> dict:
+def auth_status() -> dict[str, Any]:
     """Check authentication status."""
     token_path = get_token_path()
     if not token_path.exists():
@@ -116,7 +117,7 @@ def auth_status() -> dict:
         }
 
     try:
-        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)  # type: ignore[no-untyped-call]
     except Exception as e:
         return {"status": "error", "message": f"Invalid token: {e}"}
 
