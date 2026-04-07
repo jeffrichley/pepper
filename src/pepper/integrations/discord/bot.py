@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +40,9 @@ DISCORD_MSG_LIMIT = 2000
 _MAX_EMOJI_LEN = 2
 
 # Track pending messages so we can hold typing indicators
-pending_chat_ids: dict[str, discord.abc.Messageable] = {}
+# Stores (channel, timestamp) so we can expire stale entries
+TYPING_TIMEOUT_SECONDS = 120  # 2 minutes max typing indicator
+pending_chat_ids: dict[str, tuple[discord.abc.Messageable, float]] = {}
 
 
 def make_chat_id(message: discord.Message) -> str:
@@ -120,8 +123,8 @@ async def on_message(message: discord.Message) -> None:
         "metadata": metadata,
     }
 
-    # Track the channel for typing indicator
-    pending_chat_ids[chat_id] = message.channel
+    # Track the channel for typing indicator (with timestamp for expiry)
+    pending_chat_ids[chat_id] = (message.channel, time.monotonic())
 
     async with httpx.AsyncClient() as http:
         try:
@@ -351,10 +354,15 @@ def _resolve_emoji(name: str) -> str | None:
 
 
 async def keep_typing() -> None:
-    """Refresh typing indicators for pending messages."""
+    """Refresh typing indicators for pending messages, with timeout expiry."""
     while True:
         await asyncio.sleep(8)  # Discord typing expires after 10s
-        for chat_id, channel in list(pending_chat_ids.items()):
+        now = time.monotonic()
+        for chat_id, (channel, started_at) in list(pending_chat_ids.items()):
+            if now - started_at > TYPING_TIMEOUT_SECONDS:
+                pending_chat_ids.pop(chat_id, None)
+                log.info(f"Typing expired for {chat_id} (>{TYPING_TIMEOUT_SECONDS}s)")
+                continue
             try:
                 await channel.typing()
             except Exception:
