@@ -58,58 +58,82 @@ async def download_attachment(
         return None
 
 
-def cleanup_attachments() -> dict[str, int]:
-    """Run cleanup: delete files older than MAX_AGE_DAYS, then enforce MAX_TOTAL_BYTES.
+def _cleanup_by_age(attachments_dir: Path) -> int:
+    """Delete date directories older than MAX_AGE_DAYS.
 
-    Returns stats about what was cleaned.
+    Args:
+        attachments_dir: Root attachments directory.
+
+    Returns:
+        Number of files deleted.
     """
-    attachments_dir = get_attachments_dir()
-    if not attachments_dir.exists():
-        return {"deleted_age": 0, "deleted_size": 0}
-
-    deleted_age = 0
-    deleted_size = 0
+    deleted = 0
     cutoff = datetime.now() - timedelta(days=MAX_AGE_DAYS)
-
-    # Phase 1: delete by age (remove old date directories)
     for date_dir in sorted(attachments_dir.iterdir()):
         if not date_dir.is_dir():
             continue
         try:
             dir_date = datetime.strptime(date_dir.name, "%Y-%m-%d")
-            if dir_date < cutoff:
-                count = sum(1 for _ in date_dir.rglob("*") if _.is_file())
-                shutil.rmtree(date_dir)
-                deleted_age += count
-                log.info(
-                    f"Cleaned up {date_dir.name}"
-                    f" ({count} files, older than"
-                    f" {MAX_AGE_DAYS} days)"
-                )
         except ValueError:
             continue  # skip non-date directories
+        if dir_date < cutoff:
+            count = sum(1 for _ in date_dir.rglob("*") if _.is_file())
+            shutil.rmtree(date_dir)
+            deleted += count
+            log.info(
+                f"Cleaned up {date_dir.name}"
+                f" ({count} files, older than"
+                f" {MAX_AGE_DAYS} days)"
+            )
+    return deleted
 
-    # Phase 2: enforce size cap
+
+def _cleanup_by_size(attachments_dir: Path) -> int:
+    """Delete oldest files until total size is under MAX_TOTAL_BYTES.
+
+    Args:
+        attachments_dir: Root attachments directory.
+
+    Returns:
+        Number of files deleted.
+    """
     total_size = _get_total_size(attachments_dir)
-    if total_size > MAX_TOTAL_BYTES:
-        # Delete oldest files until under cap
-        all_files = sorted(
-            (f for f in attachments_dir.rglob("*") if f.is_file()),
-            key=lambda f: f.stat().st_mtime,
-        )
-        for f in all_files:
-            if total_size <= MAX_TOTAL_BYTES:
-                break
-            size = f.stat().st_size
-            f.unlink()
-            total_size -= size
-            deleted_size += 1
+    if total_size <= MAX_TOTAL_BYTES:
+        return 0
 
-        # Clean up empty date directories
-        for date_dir in attachments_dir.iterdir():
-            if date_dir.is_dir() and not any(date_dir.iterdir()):
-                date_dir.rmdir()
+    deleted = 0
+    all_files = sorted(
+        (f for f in attachments_dir.rglob("*") if f.is_file()),
+        key=lambda f: f.stat().st_mtime,
+    )
+    for f in all_files:
+        if total_size <= MAX_TOTAL_BYTES:
+            break
+        size = f.stat().st_size
+        f.unlink()
+        total_size -= size
+        deleted += 1
 
+    # Clean up empty date directories
+    for date_dir in attachments_dir.iterdir():
+        if date_dir.is_dir() and not any(date_dir.iterdir()):
+            date_dir.rmdir()
+
+    return deleted
+
+
+def cleanup_attachments() -> dict[str, int]:
+    """Run cleanup: delete files older than MAX_AGE_DAYS, then enforce MAX_TOTAL_BYTES.
+
+    Returns:
+        Stats dict with keys ``deleted_age`` and ``deleted_size``.
+    """
+    attachments_dir = get_attachments_dir()
+    if not attachments_dir.exists():
+        return {"deleted_age": 0, "deleted_size": 0}
+
+    deleted_age = _cleanup_by_age(attachments_dir)
+    deleted_size = _cleanup_by_size(attachments_dir)
     return {"deleted_age": deleted_age, "deleted_size": deleted_size}
 
 
