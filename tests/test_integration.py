@@ -6,7 +6,7 @@ Tests concurrent writes and hook lifecycle.
 import threading
 from pathlib import Path
 
-from shared import append_to_daily_log, get_daily_log_path
+from pepper.hooks.shared import append_to_daily_log, get_daily_log_path
 
 
 def test_concurrent_daily_log_writes(temp_vault):
