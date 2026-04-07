@@ -104,7 +104,7 @@ def _start_interactive(runtime_path: Path) -> None:
     """Launch Claude Code interactively in the runtime directory."""
     rprint(f"[green]Starting Pepper at {runtime_path}...[/green]")
     result = subprocess.run(  # noqa: PLW1510
-        ["claude", "--resume", "--channels", "server:pepper-channel"],
+        ["claude", "--continue", "--channels", "server:pepper-channel"],
         cwd=str(runtime_path),
     )
     raise typer.Exit(result.returncode)
