@@ -1,5 +1,6 @@
 # Development task runner
 # Usage: just <target>
+# Phase 2: add -n auto to pytest commands after tests are reorganized for parallel safety
 
 # Cross-platform shell configuration
 set windows-shell := ["powershell", "-NoLogo", "-Command"]
@@ -14,7 +15,7 @@ check:
     uv run ruff check src tests
     uv run ruff format --check src tests
     uv run mypy src
-    uv run pytest -m unit -n auto
+    uv run pytest -m unit
 
 # ---------------------------------------------------------------------------
 # Full pre-merge gate (~3 min)
@@ -27,31 +28,31 @@ gate:
     uv run mypy src
     uv run xenon --max-absolute B --max-modules A --max-average A src
     uv run pip-audit
-    uv run pytest -n auto --cov --cov-report=term-missing --cov-report=html
+    uv run pytest --cov --cov-report=term-missing --cov-report=html
 
 # ---------------------------------------------------------------------------
 # Testing
 # ---------------------------------------------------------------------------
 
-# Run all tests with parallel execution
+# Run all tests
 test:
-    uv run pytest -n auto
+    uv run pytest
 
 # Run unit tests only
 test-unit:
-    uv run pytest -m unit -n auto
+    uv run pytest -m unit
 
 # Run integration tests only
 test-integration:
-    uv run pytest -m integration -n auto
+    uv run pytest -m integration
 
 # Run e2e tests only
 test-e2e:
-    uv run pytest -m e2e -n auto
+    uv run pytest -m e2e
 
 # Run tests with coverage report
 test-cov:
-    uv run pytest -n auto --cov --cov-report=term-missing --cov-report=html
+    uv run pytest --cov --cov-report=term-missing --cov-report=html
 
 # ---------------------------------------------------------------------------
 # Code quality (individual tools)
