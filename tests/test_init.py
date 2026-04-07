@@ -94,6 +94,17 @@ def test_migrate_copies_vault_contents(tmp_path):
     assert (runtime / "Memory" / "daily" / "raw" / "2026-04-06.md").read_text() == "# Today's log"
 
 
+def test_generate_installs_skills(tmp_path):
+    """pepper init copies skills into runtime .claude/skills/."""
+    runtime = tmp_path / ".pepper"
+    generate_runtime(runtime_path=runtime)
+
+    skills_dir = runtime / ".claude" / "skills"
+    assert skills_dir.is_dir()
+    assert (skills_dir / "coding" / "SKILL.md").is_file()
+    assert (skills_dir / "google" / "SKILL.md").is_file()
+
+
 def test_migrate_does_not_overwrite_existing_runtime_vault(tmp_path):
     """Migration skips files that already exist in the runtime vault."""
     source_vault = tmp_path / "repo" / "Memory"

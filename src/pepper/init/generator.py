@@ -137,7 +137,24 @@ def generate_runtime(
         if not filepath.exists():
             filepath.write_text(default_content, encoding="utf-8")
 
+    # --- Install skills from the package ---
+    _install_skills(runtime_path)
+
     return runtime_path
+
+
+def _install_skills(runtime_path: Path) -> None:
+    """Copy skills from the installed package to the runtime .claude/skills/."""
+    import shutil
+
+    skills_source = Path(__file__).parent.parent / "skills"
+    if not skills_source.is_dir():
+        return
+
+    skills_dest = runtime_path / ".claude" / "skills"
+    if skills_dest.exists():
+        shutil.rmtree(skills_dest)
+    shutil.copytree(skills_source, skills_dest)
 
 
 def _migrate_vault(source: Path, dest: Path) -> None:
