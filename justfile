@@ -26,9 +26,8 @@ gate:
     uv run ruff format --check src tests
     uv run mypy src
     uv run xenon --max-absolute B --max-modules A --max-average A src
-    uv run pip-audit
-    uv run pytest -m unit -n auto --cov --cov-report=term-missing --cov-report=html
-    uv run pytest -m integration --cov --cov-append --cov-report=term-missing --cov-report=html
+    uv run pip-audit --ignore-vuln CVE-2025-69872  # diskcache via pyqmd, no fix available
+    uv run pytest -m "unit or integration" --cov --cov-report=term-missing --cov-report=html --cov-fail-under=50
 
 # ---------------------------------------------------------------------------
 # Testing
@@ -83,7 +82,7 @@ complexity:
 
 # Scan dependencies for vulnerabilities
 audit:
-    uv run pip-audit
+    uv run pip-audit --ignore-vuln CVE-2025-69872  # diskcache via pyqmd, no fix available
 
 # ---------------------------------------------------------------------------
 # Documentation

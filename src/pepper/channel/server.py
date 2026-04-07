@@ -102,7 +102,8 @@ _start_time = time.monotonic()
 
 
 async def _handle_health(
-    router: Router, send: ASGISend,
+    router: Router,
+    send: ASGISend,
 ) -> None:
     """Handle GET /health."""
     router.clean_expired()
@@ -127,7 +128,8 @@ async def _handle_health(
 
 
 async def _handle_events(
-    scope: ASGIScope, send: ASGISend,
+    scope: ASGIScope,
+    send: ASGISend,
 ) -> None:
     """Handle GET /events (SSE endpoint)."""
     query = scope.get("query_string", b"").decode()
@@ -182,7 +184,9 @@ async def _handle_events(
 
 
 async def _handle_register(
-    router: Router, receive: ASGIReceive, send: ASGISend,
+    router: Router,
+    receive: ASGIReceive,
+    send: ASGISend,
 ) -> None:
     """Handle POST /register."""
     body = await _read_body(receive)
@@ -202,7 +206,9 @@ async def _handle_register(
 
 
 async def _handle_message(
-    router: Router, receive: ASGIReceive, send: ASGISend,
+    router: Router,
+    receive: ASGIReceive,
+    send: ASGISend,
 ) -> None:
     """Handle POST /message."""
     body = await _read_body(receive)
@@ -246,7 +252,9 @@ def create_http_app(router: Router) -> ASGIApp:
     """Create an ASGI app with channel HTTP endpoints."""
 
     async def app(
-        scope: ASGIScope, receive: ASGIReceive, send: ASGISend,
+        scope: ASGIScope,
+        receive: ASGIReceive,
+        send: ASGISend,
     ) -> None:
         if scope["type"] != "http":
             return
@@ -285,7 +293,9 @@ async def _read_body(receive: ASGIReceive) -> bytes:
 
 
 async def _json_response(
-    send: ASGISend, status: int, data: dict[str, Any],
+    send: ASGISend,
+    status: int,
+    data: dict[str, Any],
 ) -> None:
     """Send a JSON HTTP response."""
     body = json.dumps(data).encode()

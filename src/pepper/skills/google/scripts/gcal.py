@@ -176,7 +176,10 @@ def create_event(
     if attendees:
         body["attendees"] = [{"email": e} for e in attendees]
 
-    return cast(dict[str, Any], service.events().insert(calendarId=calendar_id, body=body).execute())
+    return cast(
+        dict[str, Any],
+        service.events().insert(calendarId=calendar_id, body=body).execute(),
+    )
 
 
 def delete_event(

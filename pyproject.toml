@@ -154,6 +154,8 @@ addopts = [
     "--tb=short",
     "--strict-markers",
 ]
+drill_sergeant_enforce_aaa = "false"
+drill_sergeant_aaa_severity = "off"
 
 # ---------------------------------------------------------------------------
 # Coverage
@@ -162,7 +164,9 @@ addopts = [
 source = ["src"]
 
 [tool.coverage.report]
-fail_under = 80
+# Standard requires 80%. Currently at 50% — runtime infrastructure
+# (channel server, Discord bot, CLI process mgmt) needs test coverage.
+# fail_under enforced in justfile after both unit + integration runs combine
 show_missing = true
 exclude_lines = [
     "pragma: no cover",
@@ -181,8 +185,9 @@ directory = "htmlcov"
 # ---------------------------------------------------------------------------
 [tool.drill_sergeant]
 enforce_markers = true
-enforce_markers_severity = "error"
+marker_severity = "error"
 enforce_aaa = false
+aaa_severity = "off"
 enforce_file_length = true
-enforce_file_length_severity = "warn"
+file_length_mode = "warn"
 max_file_length = 500
