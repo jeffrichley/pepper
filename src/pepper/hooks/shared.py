@@ -113,6 +113,6 @@ def read_stdin() -> dict[str, object]:
     return result
 
 
-def write_stdout(data: dict) -> None:
+def write_stdout(data: dict[str, object]) -> None:
     """Write JSON to stdout (hook output)."""
     print(json.dumps(data))

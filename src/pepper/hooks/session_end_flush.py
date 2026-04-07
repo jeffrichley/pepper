@@ -15,7 +15,7 @@ from pepper.hooks.shared import (
 )
 
 
-def main():
+def main() -> None:
     """Mark session end and acknowledge."""
     with contextlib.suppress(Exception):
         read_stdin()

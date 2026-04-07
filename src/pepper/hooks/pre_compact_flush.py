@@ -15,7 +15,7 @@ from pepper.hooks.shared import (
 )
 
 
-def main():
+def main() -> None:
     """Nudge Claude to save context before compaction."""
     with contextlib.suppress(Exception):
         read_stdin()

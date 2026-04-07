@@ -12,7 +12,7 @@ from pepper.hooks.shared import (
 )
 
 
-def main():
+def main() -> None:
     """Inject Tier 1 context into the Claude Code session."""
     with contextlib.suppress(json.JSONDecodeError, EOFError):
         read_stdin()
