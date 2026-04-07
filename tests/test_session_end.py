@@ -5,65 +5,30 @@ import subprocess
 import sys
 from pathlib import Path
 
-from pepper.hooks.shared import append_to_daily_log
 
-
-def test_session_end_appends_transcript(temp_vault, mock_stdin_data, temp_transcript):
+def test_session_end_returns_empty_json(temp_vault, mock_stdin_data):
+    """SessionEnd should return empty JSON (session is ending)."""
     stdin = mock_stdin_data(
         session_id="end-sess-1",
-        transcript_path=str(temp_transcript),
         hook_event="SessionEnd",
     )
-    _run_hook(temp_vault, stdin)
-    log_files = list((temp_vault / "daily" / "raw").glob("*.md"))
-    assert len(log_files) == 1
-    text = log_files[0].read_text()
-    assert "[session-end]" in text
-    assert "(session: end-sess-1)" in text
+    result = _run_hook(temp_vault, stdin)
+    data = json.loads(result)
+    assert data == {}
 
 
-def test_session_end_dedup_after_precompact(temp_vault, mock_stdin_data, temp_transcript):
-    append_to_daily_log(
-        vault_path=temp_vault,
-        content="Pre-compact transcript dump",
-        source="pre-compact",
-        session_id="dedup-sess-1",
-    )
-
-    stdin = mock_stdin_data(
-        session_id="dedup-sess-1",
-        transcript_path=str(temp_transcript),
-        hook_event="SessionEnd",
-    )
-    _run_hook(temp_vault, stdin)
-
-    log_path = list((temp_vault / "daily" / "raw").glob("*.md"))[0]
-    text = log_path.read_text()
-    assert text.count("(session: dedup-sess-1)") == 1
-    assert "[pre-compact]" in text
-    assert "[session-end]" not in text
-
-
-def test_session_end_returns_empty_json(temp_vault, mock_stdin_data, temp_transcript):
+def test_session_end_does_not_dump_transcript(temp_vault, mock_stdin_data, temp_transcript):
+    """SessionEnd should NOT write the raw transcript to the daily log."""
     stdin = mock_stdin_data(
         session_id="end-sess-2",
         transcript_path=str(temp_transcript),
         hook_event="SessionEnd",
     )
-    result = _run_hook(temp_vault, stdin)
-    data = json.loads(result)
-    assert data == {}
+    _run_hook(temp_vault, stdin)
 
-
-def test_session_end_no_transcript(temp_vault, mock_stdin_data):
-    stdin = mock_stdin_data(
-        session_id="end-sess-3",
-        transcript_path="/nonexistent/path.txt",
-        hook_event="SessionEnd",
-    )
-    result = _run_hook(temp_vault, stdin)
-    data = json.loads(result)
-    assert data == {}
+    log_dir = temp_vault / "daily" / "raw"
+    log_files = list(log_dir.glob("*.md"))
+    assert len(log_files) == 0, "SessionEnd should not create daily log entries"
 
 
 def _run_hook(vault_path: Path, stdin_data: str) -> str:

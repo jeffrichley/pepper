@@ -1,31 +1,25 @@
-"""PreCompact hook: save transcript to daily log and nudge Claude."""
+"""PreCompact hook: nudge Claude to save important context before compaction.
+
+Does NOT dump the raw transcript — the agent decides what's worth keeping
+and writes it to the daily log. The reflection job summarizes later.
+
+Env override: PEPPER_VAULT_PATH (for testing)
+"""
 
 from datetime import datetime
-from pathlib import Path
 
 from pepper.hooks.shared import (
     get_vault_path,
-    append_to_daily_log,
     read_stdin,
     write_stdout,
 )
 
 
 def main():
-    hook_input = read_stdin()
-    session_id = hook_input.get("session_id", "unknown")
-    transcript_path = hook_input.get("transcript_path", "")
-
-    vault = get_vault_path()
-
-    if transcript_path and Path(transcript_path).exists():
-        transcript = Path(transcript_path).read_text(encoding="utf-8")
-        append_to_daily_log(
-            vault_path=vault,
-            content=transcript,
-            source="pre-compact",
-            session_id=session_id,
-        )
+    try:
+        read_stdin()
+    except Exception:
+        pass
 
     today = datetime.now().strftime("%Y-%m-%d")
     write_stdout({
