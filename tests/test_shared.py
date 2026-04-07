@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from shared import (
+from pepper.hooks.shared import (
     get_vault_path,
     read_tier1_files,
     get_daily_log_path,
