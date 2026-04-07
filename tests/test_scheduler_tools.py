@@ -1,12 +1,8 @@
 """Tests for scheduler MCP tool implementations."""
 
-import sys
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "integrations" / "discord"))
 
 
 @pytest.fixture
@@ -29,7 +25,7 @@ def mock_scheduler():
 
 @pytest.mark.asyncio
 async def test_list_jobs(mock_scheduler):
-    from scheduler_tools import list_jobs_impl
+    from pepper.integrations.discord.scheduler_tools import list_jobs_impl
 
     result = await list_jobs_impl(mock_scheduler)
     assert len(result) == 1
@@ -38,7 +34,7 @@ async def test_list_jobs(mock_scheduler):
 
 @pytest.mark.asyncio
 async def test_create_job(mock_scheduler):
-    from scheduler_tools import create_job_impl
+    from pepper.integrations.discord.scheduler_tools import create_job_impl
 
     result = await create_job_impl(
         mock_scheduler,
@@ -53,7 +49,7 @@ async def test_create_job(mock_scheduler):
 
 @pytest.mark.asyncio
 async def test_delete_job(mock_scheduler):
-    from scheduler_tools import delete_job_impl
+    from pepper.integrations.discord.scheduler_tools import delete_job_impl
 
     result = await delete_job_impl(mock_scheduler, "heartbeat")
     assert result["status"] == "deleted"
@@ -62,7 +58,7 @@ async def test_delete_job(mock_scheduler):
 
 @pytest.mark.asyncio
 async def test_pause_job(mock_scheduler):
-    from scheduler_tools import pause_job_impl
+    from pepper.integrations.discord.scheduler_tools import pause_job_impl
 
     result = await pause_job_impl(mock_scheduler, "heartbeat")
     assert result["status"] == "paused"
