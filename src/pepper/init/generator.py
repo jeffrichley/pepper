@@ -71,12 +71,14 @@ TIER_1_FILES = {
 def generate_runtime(
     runtime_path: Path | None = None,
     discord_integration_path: str = "",
+    migrate_from: Path | None = None,
 ) -> Path:
     """Generate the Pepper runtime workspace.
 
     Args:
         runtime_path: Where to create the workspace. Defaults to ~/.pepper/.
         discord_integration_path: Absolute path to the discord integration directory.
+        migrate_from: Path to existing Memory/ vault to copy contents from.
 
     Returns:
         The runtime path.
@@ -117,17 +119,35 @@ def generate_runtime(
         template.render(vault_path=vault_path, runtime_path=str(runtime_path))
     )
 
-    # --- Scaffold vault (never overwrite existing files) ---
+    # --- Scaffold vault ---
 
     vault = runtime_path / "Memory"
     vault.mkdir(exist_ok=True)
 
+    # Migrate BEFORE scaffold so migrated files take precedence over defaults
+    if migrate_from and migrate_from.is_dir():
+        _migrate_vault(source=migrate_from, dest=vault)
+
     for dir_path in VAULT_SCAFFOLD_DIRS:
         (vault / dir_path).mkdir(parents=True, exist_ok=True)
 
+    # Only create default Tier 1 files if they don't already exist (from migration or prior init)
     for filename, default_content in TIER_1_FILES.items():
         filepath = vault / filename
         if not filepath.exists():
             filepath.write_text(default_content, encoding="utf-8")
 
     return runtime_path
+
+
+def _migrate_vault(source: Path, dest: Path) -> None:
+    """Copy vault contents from source to dest, skipping existing files."""
+    import shutil
+
+    for item in source.rglob("*"):
+        if item.is_file():
+            rel = item.relative_to(source)
+            target = dest / rel
+            if not target.exists():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(item, target)

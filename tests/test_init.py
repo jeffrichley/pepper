@@ -76,3 +76,35 @@ def test_generate_overwrites_config_files(tmp_path):
     generate_runtime(runtime_path=runtime)
 
     assert "Pepper" in (runtime / "CLAUDE.md").read_text()
+
+
+def test_migrate_copies_vault_contents(tmp_path):
+    """pepper init --migrate copies existing vault to runtime."""
+    source_vault = tmp_path / "repo" / "Memory"
+    source_vault.mkdir(parents=True)
+    (source_vault / "IDENTITY.md").write_text("# My Real Identity")
+    daily_raw = source_vault / "daily" / "raw"
+    daily_raw.mkdir(parents=True)
+    (daily_raw / "2026-04-06.md").write_text("# Today's log")
+
+    runtime = tmp_path / ".pepper"
+    generate_runtime(runtime_path=runtime, migrate_from=source_vault)
+
+    assert (runtime / "Memory" / "IDENTITY.md").read_text() == "# My Real Identity"
+    assert (runtime / "Memory" / "daily" / "raw" / "2026-04-06.md").read_text() == "# Today's log"
+
+
+def test_migrate_does_not_overwrite_existing_runtime_vault(tmp_path):
+    """Migration skips files that already exist in the runtime vault."""
+    source_vault = tmp_path / "repo" / "Memory"
+    source_vault.mkdir(parents=True)
+    (source_vault / "IDENTITY.md").write_text("# Source Identity")
+
+    runtime = tmp_path / ".pepper"
+    vault = runtime / "Memory"
+    vault.mkdir(parents=True)
+    (vault / "IDENTITY.md").write_text("# Existing Identity")
+
+    generate_runtime(runtime_path=runtime, migrate_from=source_vault)
+
+    assert (vault / "IDENTITY.md").read_text() == "# Existing Identity"
