@@ -23,5 +23,6 @@ def test_start_launches_claude():
         result = runner.invoke(app, ["start"])
         mock_run.assert_called_once()
         args, kwargs = mock_run.call_args
-        assert args[0] == ["claude"]
+        assert args[0][0] == "claude"
+        assert "server:pepper-channel" in args[0]
         assert ".pepper" in kwargs["cwd"]
