@@ -28,20 +28,53 @@ from pepper.channel.router import Router
 log = logging.getLogger("pepper-channel")
 
 # --- SSE listener management ---
+# Each listener is an asyncio.Queue that receives SSE chunks.
 
-_source_listeners: dict[str, set] = {}
-_global_listeners: set = set()
+_source_listeners: dict[str, set[asyncio.Queue]] = {}
+_global_listeners: set[asyncio.Queue] = set()
+_sse_lock = threading.Lock()
 
 
 def emit_to_source(source: str, data: dict) -> None:
-    """Emit an event to source-specific and global SSE listeners."""
+    """Emit an event to source-specific and global SSE listeners (thread-safe)."""
     encoded = json.dumps(data)
     chunk = f"data: {encoded}\n\n"
 
-    for emit in _source_listeners.get(source, set()):
-        emit(chunk)
-    for emit in _global_listeners:
-        emit(chunk)
+    with _sse_lock:
+        for q in _source_listeners.get(source, set()):
+            try:
+                q.put_nowait(chunk)
+            except Exception:
+                pass
+        for q in _global_listeners:
+            try:
+                q.put_nowait(chunk)
+            except Exception:
+                pass
+
+
+def _add_sse_listener(source: str | None) -> asyncio.Queue:
+    """Register an SSE listener queue. If source is None, listens to all."""
+    q: asyncio.Queue = asyncio.Queue()
+    with _sse_lock:
+        if source:
+            if source not in _source_listeners:
+                _source_listeners[source] = set()
+            _source_listeners[source].add(q)
+        else:
+            _global_listeners.add(q)
+    return q
+
+
+def _remove_sse_listener(source: str | None, q: asyncio.Queue) -> None:
+    """Unregister an SSE listener queue."""
+    with _sse_lock:
+        if source:
+            listeners = _source_listeners.get(source)
+            if listeners:
+                listeners.discard(q)
+        else:
+            _global_listeners.discard(q)
 
 
 # --- Notification bridge (HTTP thread -> MCP event loop) ---
@@ -73,6 +106,38 @@ def create_http_app(router: Router):
 
         method = scope["method"]
         path = scope["path"]
+
+        if method == "GET" and path == "/events":
+            # SSE endpoint — long-lived connection that streams replies
+            query = scope.get("query_string", b"").decode()
+            source = None
+            for param in query.split("&"):
+                if param.startswith("source="):
+                    source = param[7:]
+
+            q = _add_sse_listener(source)
+            try:
+                await send({"type": "http.response.start", "status": 200, "headers": [
+                    [b"content-type", b"text/event-stream"],
+                    [b"cache-control", b"no-cache"],
+                    [b"connection", b"keep-alive"],
+                ]})
+                # Send initial connected comment
+                await send({"type": "http.response.body", "body": b": connected\n\n", "more_body": True})
+
+                # Stream events from the queue
+                while True:
+                    try:
+                        chunk = await asyncio.wait_for(q.get(), timeout=30.0)
+                        await send({"type": "http.response.body", "body": chunk.encode(), "more_body": True})
+                    except asyncio.TimeoutError:
+                        # Send keepalive comment
+                        await send({"type": "http.response.body", "body": b": keepalive\n\n", "more_body": True})
+                    except Exception:
+                        break
+            finally:
+                _remove_sse_listener(source, q)
+            return
 
         if method == "GET" and path == "/health":
             router.clean_expired()
