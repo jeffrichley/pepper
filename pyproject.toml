@@ -141,8 +141,7 @@ addopts = [
     "-v",
     "--tb=short",
     "--strict-markers",
-    "-p", "no:drill_sergeant",  # Phase 2: remove after tests have markers + AAA structure
-    # Phase 2: add "-n", "auto" after tests are reorganized for parallel safety
+    "-p", "no:drill_sergeant",  # TODO: enable after tests have AAA structure
 ]
 
 # ---------------------------------------------------------------------------

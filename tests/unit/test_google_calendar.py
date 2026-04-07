@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "pepper" / "skills" / "google" / "scripts"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src" / "pepper" / "skills" / "google" / "scripts"))
 
 
 @pytest.fixture
