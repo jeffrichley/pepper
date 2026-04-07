@@ -35,5 +35,5 @@ def test_start_launches_claude():
         assert args[0][0] == "claude"
         assert "--continue" in args[0]
         assert "--channels" in args[0]
-        assert "server:pepper-channel" in args[0]
+        assert "plugin:discord@claude-plugins-official" in args[0]
         assert ".pepper" in kwargs["cwd"]

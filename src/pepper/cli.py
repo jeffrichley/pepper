@@ -104,7 +104,7 @@ def _start_interactive(runtime_path: Path) -> None:
     """Launch Claude Code interactively in the runtime directory."""
     rprint(f"[green]Starting Pepper at {runtime_path}...[/green]")
     result = subprocess.run(  # noqa: PLW1510
-        ["claude", "--continue", "--channels", "server:pepper-channel"],
+        ["claude", "--continue", "--channels", "plugin:discord@claude-plugins-official"],
         cwd=str(runtime_path),
     )
     raise typer.Exit(result.returncode)
@@ -125,7 +125,7 @@ def _start_background(runtime_path: Path) -> None:
             "claude",
             "--dangerously-skip-permissions",
             "--channels",
-            "server:pepper-channel",
+            "plugin:discord@claude-plugins-official",
             "-p",
             "You are Pepper. Monitor Discord and handle scheduled tasks.",
         ],
