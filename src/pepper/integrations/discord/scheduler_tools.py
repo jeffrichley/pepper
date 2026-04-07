@@ -11,7 +11,7 @@ from typing import Any
 
 from apscheduler import AsyncScheduler
 
-from scheduler import build_trigger, execute_job
+from .scheduler import build_trigger, execute_job
 
 log = logging.getLogger("pepper-scheduler")
 

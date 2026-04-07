@@ -1,15 +1,9 @@
 """Tests for Discord embed formatting helpers."""
 
-import sys
-from pathlib import Path
-
-# Add the discord integration to the path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "integrations" / "discord"))
-
 
 def test_build_embed_basic():
     """Build an embed with title and description."""
-    from embeds import build_embed
+    from pepper.integrations.discord.embeds import build_embed
 
     embed_data = {
         "title": "Daily Briefing",
@@ -24,7 +18,7 @@ def test_build_embed_basic():
 
 def test_build_embed_with_fields():
     """Build an embed with fields."""
-    from embeds import build_embed
+    from pepper.integrations.discord.embeds import build_embed
 
     embed_data = {
         "title": "Status",
@@ -42,7 +36,7 @@ def test_build_embed_with_fields():
 
 def test_build_embed_empty():
     """Empty embed data returns a basic embed."""
-    from embeds import build_embed
+    from pepper.integrations.discord.embeds import build_embed
 
     embed = build_embed({})
     assert embed.title is None
@@ -51,6 +45,6 @@ def test_build_embed_empty():
 
 def test_build_embed_none():
     """None input returns None."""
-    from embeds import build_embed
+    from pepper.integrations.discord.embeds import build_embed
 
     assert build_embed(None) is None

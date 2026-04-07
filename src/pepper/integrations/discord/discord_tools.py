@@ -11,7 +11,7 @@ from typing import Any
 
 import discord
 
-from embeds import build_embed
+from .embeds import build_embed
 
 log = logging.getLogger("pepper-discord")
 

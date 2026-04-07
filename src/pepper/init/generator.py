@@ -70,14 +70,12 @@ TIER_1_FILES = {
 
 def generate_runtime(
     runtime_path: Path | None = None,
-    discord_integration_path: str = "",
     migrate_from: Path | None = None,
 ) -> Path:
     """Generate the Pepper runtime workspace.
 
     Args:
         runtime_path: Where to create the workspace. Defaults to ~/.pepper/.
-        discord_integration_path: Absolute path to the discord integration directory.
         migrate_from: Path to existing Memory/ vault to copy contents from.
 
     Returns:
@@ -108,9 +106,7 @@ def generate_runtime(
 
     # .mcp.json
     template = env.get_template("mcp.json.j2")
-    (runtime_path / ".mcp.json").write_text(
-        template.render(discord_integration_path=discord_integration_path)
-    )
+    (runtime_path / ".mcp.json").write_text(template.render())
 
     # config.toml
     template = env.get_template("config.toml.j2")

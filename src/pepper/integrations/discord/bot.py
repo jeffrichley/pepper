@@ -17,8 +17,8 @@ from typing import Any
 import discord
 import httpx
 
-from config import CHANNEL_URL
-from embeds import build_embed
+from .config import CHANNEL_URL
+from .embeds import build_embed
 
 log = logging.getLogger("pepper-discord")
 

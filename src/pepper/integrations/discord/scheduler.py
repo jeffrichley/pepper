@@ -19,7 +19,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from config import CHANNEL_URL, SCHEDULER_DB, TIMEZONE
+from .config import CHANNEL_URL, SCHEDULER_DB, TIMEZONE
 
 log = logging.getLogger("pepper-scheduler")
 
