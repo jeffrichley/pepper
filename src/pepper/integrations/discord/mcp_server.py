@@ -24,9 +24,9 @@ logging.basicConfig(
 log = logging.getLogger("pepper-mcp")
 
 # Import integration modules
-from bot import client, start_bot
-from config import DISCORD_BOT_TOKEN, JOBS_YAML
-from discord_tools import (
+from .bot import client, start_bot
+from .config import DISCORD_BOT_TOKEN, JOBS_YAML
+from .discord_tools import (
     add_reaction_impl,
     get_channel_info_impl,
     get_recent_messages_impl,
@@ -34,8 +34,8 @@ from discord_tools import (
     send_discord_message_impl,
     send_typing_impl,
 )
-from scheduler import create_scheduler, seed_default_jobs
-from scheduler_tools import (
+from .scheduler import create_scheduler, seed_default_jobs
+from .scheduler_tools import (
     create_job_impl,
     delete_job_impl,
     list_jobs_impl,
@@ -241,5 +241,10 @@ async def resume_job(name: str) -> dict[str, str]:
     return await resume_job_impl(_scheduler, name)
 
 
-if __name__ == "__main__":
+def run():
+    """Entry point for pepper-discord command."""
     mcp.run(transport="stdio")
+
+
+if __name__ == "__main__":
+    run()
