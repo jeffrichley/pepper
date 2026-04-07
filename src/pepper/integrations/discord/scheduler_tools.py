@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 from apscheduler import AsyncScheduler
+from apscheduler.abc import Trigger
 
 from .scheduler import build_trigger, execute_job
 
@@ -69,6 +70,31 @@ async def create_job_impl(  # noqa: PLR0913
     return {"status": "created", "name": name}
 
 
+def _get_schedule_arg(args: tuple[str, ...] | None, index: int) -> str:
+    """Extract an argument from a schedule's args tuple, defaulting to ''."""
+    if args and len(args) > index:
+        return str(args[index])
+    return ""
+
+
+def _resolve_trigger(
+    existing_trigger: Trigger,
+    schedule: dict[str, Any] | None,
+    timezone: str | None,
+) -> Trigger:
+    """Build a new trigger from schedule dict, or reuse the existing one."""
+    if not schedule:
+        return existing_trigger
+    trigger_str = str(existing_trigger)
+    trigger_type = "interval" if "interval" in trigger_str.lower() else "cron"
+    job_def = {
+        "trigger": trigger_type,
+        "schedule": schedule,
+        "timezone": timezone or "US/Eastern",
+    }
+    return build_trigger(job_def)
+
+
 async def update_job_impl(  # noqa: PLR0913
     scheduler: AsyncScheduler,
     name: str,
@@ -83,30 +109,12 @@ async def update_job_impl(  # noqa: PLR0913
     except Exception:
         return {"status": "error", "message": f"Job {name} not found"}
 
-    current_prompt = (
-        existing.args[1]
-        if existing.args and len(existing.args) >= 2  # noqa: PLR2004
-        else ""
-    )
-    current_hint = (
-        existing.args[2]
-        if existing.args and len(existing.args) >= 3  # noqa: PLR2004
-        else ""
-    )
+    current_prompt = _get_schedule_arg(existing.args, 1)
+    current_hint = _get_schedule_arg(existing.args, 2)
 
     await scheduler.remove_schedule(name)
 
-    if schedule:
-        trigger_str = str(existing.trigger)
-        trigger_type = "interval" if "interval" in trigger_str.lower() else "cron"
-        job_def = {
-            "trigger": trigger_type,
-            "schedule": schedule,
-            "timezone": timezone or "US/Eastern",
-        }
-        new_trigger = build_trigger(job_def)
-    else:
-        new_trigger = existing.trigger
+    new_trigger = _resolve_trigger(existing.trigger, schedule, timezone)
 
     await scheduler.add_schedule(
         execute_job,

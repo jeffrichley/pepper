@@ -23,6 +23,11 @@ from pepper.attachments import download_attachment
 from .config import CHANNEL_URL
 from .embeds import build_embed
 
+# Type alias for channels that support send/fetch_message/typing/history
+Messageable = (
+    discord.TextChannel | discord.Thread | discord.VoiceChannel | discord.StageChannel
+)
+
 log = logging.getLogger("pepper-discord")
 
 # --- Discord client setup ---
@@ -45,8 +50,9 @@ def make_chat_id(message: discord.Message) -> str:
 
 
 @client.event
-async def on_ready():
+async def on_ready() -> None:
     """Register with the channel server on startup."""
+    assert client.user is not None
     log.info(f"Logged in as {client.user} (id: {client.user.id})")
     async with httpx.AsyncClient() as http:
         try:
@@ -63,7 +69,7 @@ async def on_ready():
 
 
 @client.event
-async def on_message(message: discord.Message):
+async def on_message(message: discord.Message) -> None:
     """Forward Discord messages to the channel server."""
     # Ignore our own messages
     if message.author == client.user:
@@ -135,7 +141,7 @@ async def on_message(message: discord.Message):
             )
 
 
-async def listen_for_replies():
+async def listen_for_replies() -> None:
     """Connect to the channel server SSE stream and relay replies to Discord."""
     backoff = 1.0
     max_backoff = 30.0
@@ -166,70 +172,65 @@ async def listen_for_replies():
             backoff = min(backoff * 2, max_backoff)
 
 
-async def handle_reply(data: dict[str, Any]):  # noqa: C901, PLR0912, PLR0915
-    """Process a reply from the channel server and send it to Discord."""
-    chat_id = data.get("chat_id", "")
-    text = data.get("text", "")
-    metadata = data.get("metadata", {})
-
-    # Parse chat_id to find the channel
+def _parse_channel_id(chat_id: str) -> int | None:
+    """Extract the channel ID from a chat_id string. Returns None on failure."""
     parts = chat_id.split("-")
     try:
-        if (parts[0] == "discord" and parts[1] == "dm") or parts[0] == "discord":
-            channel_id = int(parts[2])
-        else:
-            log.warning(f"Unknown chat_id format: {chat_id}")
-            return
+        if parts[0] == "discord":
+            return int(parts[2])
     except (IndexError, ValueError):
-        log.warning(f"Could not parse chat_id: {chat_id}")
-        return
+        pass
+    log.warning(f"Could not parse chat_id: {chat_id}")
+    return None
 
+
+def _parse_original_message_id(chat_id: str) -> int | None:
+    """Extract the original message ID from a chat_id string."""
+    parts = chat_id.split("-")
+    try:
+        if parts[0] == "discord":
+            return int(parts[3])
+    except (IndexError, ValueError):
+        pass
+    return None
+
+
+async def _resolve_channel(channel_id: int) -> Messageable | None:
+    """Look up a messageable channel by ID, fetching from API if needed."""
     channel = client.get_channel(channel_id)
     if channel is None:
-        # Try fetching it (might be a DM channel not in cache)
         try:
             channel = await client.fetch_channel(channel_id)
         except discord.NotFound:
             log.warning(f"Channel {channel_id} not found")
-            return
+            return None
+    if not isinstance(channel, Messageable):
+        log.warning(f"Channel {channel_id} is not a messageable channel")
+        return None
+    return channel
 
-    # Remove from pending (stop typing indicator tracking)
-    pending_chat_ids.pop(chat_id, None)
 
-    # Handle reactions
-    reply_type = metadata.get("type", "message")
-    reactions = metadata.get("reactions", [])
-
-    # Try to find the original message for reactions
-    original_message_id = None
+async def _handle_reactions(
+    channel: Messageable,
+    original_message_id: int,
+    reactions: list[str],
+) -> None:
+    """Add emoji reactions to the original Discord message."""
     try:
-        if (parts[0] == "discord" and parts[1] == "dm") or parts[0] == "discord":
-            original_message_id = int(parts[3])
-    except (IndexError, ValueError):
-        pass
+        original = await channel.fetch_message(original_message_id)
+        for emoji_name in reactions:
+            emoji = _resolve_emoji(emoji_name)
+            if emoji:
+                await original.add_reaction(emoji)
+    except discord.NotFound:
+        log.warning(
+            f"Original message {original_message_id} not found for reactions",
+        )
 
-    if reactions and original_message_id:
-        try:
-            original = await channel.fetch_message(original_message_id)
-            for emoji_name in reactions:
-                emoji = _resolve_emoji(emoji_name)
-                if emoji:
-                    await original.add_reaction(emoji)
-        except discord.NotFound:
-            log.warning(
-                f"Original message {original_message_id} not found for reactions",
-            )
 
-    # If reaction-only, we're done
-    if reply_type == "reaction":
-        return
-
-    # Build and send the reply
-    embed_data = metadata.get("embed")
-    embed = build_embed(embed_data)
-
-    # Prepare outbound file attachments
-    files = []
+def _prepare_file_attachments(metadata: dict[str, Any]) -> list[discord.File]:
+    """Build a list of discord.File objects from metadata attachments."""
+    files: list[discord.File] = []
     outbound_attachments = metadata.get("attachments", [])
     if isinstance(outbound_attachments, str):
         try:
@@ -240,26 +241,86 @@ async def handle_reply(data: dict[str, Any]):  # noqa: C901, PLR0912, PLR0915
         p = Path(file_path)
         if p.exists():
             files.append(discord.File(str(p), filename=p.name))
+    return files
+
+
+async def _send_text_reply(
+    channel: Messageable,
+    text: str,
+    embed: discord.Embed | None,
+    files: list[discord.File],
+) -> None:
+    """Send a text reply, splitting into chunks if needed."""
+    send_files = files if files else None
+    if len(text) <= DISCORD_MSG_LIMIT:
+        await channel.send(
+            text,
+            embed=embed,  # type: ignore[arg-type]
+            files=send_files,  # type: ignore[arg-type]
+        )
+    else:
+        chunks = [
+            text[i : i + DISCORD_MSG_LIMIT]
+            for i in range(0, len(text), DISCORD_MSG_LIMIT)
+        ]
+        for i, chunk in enumerate(chunks):
+            is_last = i == len(chunks) - 1
+            await channel.send(
+                chunk,
+                embed=embed if is_last else None,  # type: ignore[arg-type]
+                files=send_files if is_last else None,  # type: ignore[arg-type]
+            )
+
+
+async def _send_embed_or_files(
+    channel: Messageable,
+    embed: discord.Embed | None,
+    files: list[discord.File],
+) -> None:
+    """Send an embed and/or file attachments without text content."""
+    if embed and files:
+        await channel.send("", embed=embed, files=files)
+    elif embed:
+        await channel.send(embed=embed)
+    elif files:
+        await channel.send("", files=files)
+
+
+async def handle_reply(data: dict[str, Any]) -> None:
+    """Process a reply from the channel server and send it to Discord."""
+    chat_id = data.get("chat_id", "")
+    text = data.get("text", "")
+    metadata: dict[str, Any] = data.get("metadata", {})
+
+    channel_id = _parse_channel_id(chat_id)
+    if channel_id is None:
+        return
+
+    channel = await _resolve_channel(channel_id)
+    if channel is None:
+        return
+
+    # Remove from pending (stop typing indicator tracking)
+    pending_chat_ids.pop(chat_id, None)
+
+    # Handle reactions
+    reply_type = metadata.get("type", "message")
+    reactions: list[str] = metadata.get("reactions", [])
+    original_message_id = _parse_original_message_id(chat_id)
+
+    if reactions and original_message_id:
+        await _handle_reactions(channel, original_message_id, reactions)
+
+    if reply_type == "reaction":
+        return
+
+    embed = build_embed(metadata.get("embed"))
+    files = _prepare_file_attachments(metadata)
 
     if text:
-        # Discord has a 2000 char limit per message
-        if len(text) <= DISCORD_MSG_LIMIT:
-            await channel.send(text, embed=embed, files=files or None)
-        else:
-            # Split into chunks, attach files to last chunk
-            chunks = [
-                text[i : i + DISCORD_MSG_LIMIT]
-                for i in range(0, len(text), DISCORD_MSG_LIMIT)
-            ]
-            for i, chunk in enumerate(chunks):
-                is_last = i == len(chunks) - 1
-                await channel.send(
-                    chunk,
-                    embed=embed if is_last else None,
-                    files=files if is_last else None,
-                )
-    elif embed or files:
-        await channel.send(text="" if files else None, embed=embed, files=files or None)
+        await _send_text_reply(channel, text, embed, files)
+    else:
+        await _send_embed_or_files(channel, embed, files)
 
 
 # Common emoji name -> unicode mapping
@@ -289,7 +350,7 @@ def _resolve_emoji(name: str) -> str | None:
     return EMOJI_MAP.get(name, name if len(name) <= _MAX_EMOJI_LEN else None)
 
 
-async def keep_typing():
+async def keep_typing() -> None:
     """Refresh typing indicators for pending messages."""
     while True:
         await asyncio.sleep(8)  # Discord typing expires after 10s
@@ -300,7 +361,7 @@ async def keep_typing():
                 pending_chat_ids.pop(chat_id, None)
 
 
-async def start_bot(token: str):
+async def start_bot(token: str) -> None:
     """Start the Discord bot as an async task.
 
     Call this from the MCP server lifespan. Uses client.start()

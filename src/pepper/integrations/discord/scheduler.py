@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-import yaml
+import yaml  # type: ignore[import-untyped]
 from apscheduler import AsyncScheduler
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.triggers.cron import CronTrigger
@@ -34,7 +34,7 @@ def load_seed_jobs(yaml_path: Path) -> dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
-def build_trigger(job_def: dict[str, Any]):
+def build_trigger(job_def: dict[str, Any]) -> IntervalTrigger | CronTrigger:
     """Build an APScheduler trigger from a job definition."""
     trigger_type = job_def["trigger"]
     schedule = job_def["schedule"]
@@ -58,7 +58,7 @@ def build_trigger(job_def: dict[str, Any]):
         raise ValueError(f"Unknown trigger type: {trigger_type}")
 
 
-async def execute_function_job(name: str, module_path: str):
+async def execute_function_job(name: str, module_path: str) -> None:
     """Execute a scheduled function job by importing and calling the function."""
     try:
         module_name, func_name = module_path.rsplit(":", 1)
@@ -75,7 +75,7 @@ async def execute_function_job(name: str, module_path: str):
         log.error(f"Function job {name} failed: {e}")
 
 
-async def execute_job(name: str, prompt: str, channel_hint: str = ""):
+async def execute_job(name: str, prompt: str, channel_hint: str = "") -> None:
     """Execute a scheduled job by POSTing to the channel server."""
     chat_id = f"scheduler-{name}-{int(time.time())}"
 
@@ -113,7 +113,7 @@ async def create_scheduler() -> AsyncScheduler:
     return scheduler
 
 
-async def seed_default_jobs(scheduler: AsyncScheduler, yaml_path: Path):
+async def seed_default_jobs(scheduler: AsyncScheduler, yaml_path: Path) -> None:
     """Seed default jobs from YAML if they don't already exist."""
     existing = await scheduler.get_schedules()
     existing_ids = {s.id for s in existing}

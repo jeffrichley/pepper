@@ -13,6 +13,11 @@ import discord
 
 from .embeds import build_embed
 
+# Type alias for channels that support send/fetch_message/typing/history
+Messageable = (
+    discord.TextChannel | discord.Thread | discord.VoiceChannel | discord.StageChannel
+)
+
 log = logging.getLogger("pepper-discord")
 
 EMOJI_MAP = {
@@ -46,6 +51,22 @@ def _resolve_emoji(name: str) -> str | None:
 DISCORD_MSG_LIMIT = 2000
 
 
+async def _get_messageable(
+    client: discord.Client,
+    channel_id: str,
+) -> Messageable | None:
+    """Resolve a channel ID to a messageable channel, or None."""
+    channel = client.get_channel(int(channel_id))
+    if channel is None:
+        try:
+            channel = await client.fetch_channel(int(channel_id))
+        except Exception:
+            return None
+    if not isinstance(channel, Messageable):
+        return None
+    return channel
+
+
 async def send_discord_message_impl(
     client: discord.Client,
     channel_id: str,
@@ -53,12 +74,9 @@ async def send_discord_message_impl(
     embed: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     """Send a message to a Discord channel."""
-    channel = client.get_channel(int(channel_id))
+    channel = await _get_messageable(client, channel_id)
     if channel is None:
-        try:
-            channel = await client.fetch_channel(int(channel_id))
-        except Exception:
-            return {"status": "error", "message": f"Channel {channel_id} not found"}
+        return {"status": "error", "message": f"Channel {channel_id} not found"}
 
     discord_embed = build_embed(embed)
 
@@ -66,9 +84,9 @@ async def send_discord_message_impl(
         for i in range(0, len(text), DISCORD_MSG_LIMIT):
             chunk = text[i : i + DISCORD_MSG_LIMIT]
             chunk_embed = discord_embed if i + DISCORD_MSG_LIMIT >= len(text) else None
-            await channel.send(chunk, embed=chunk_embed)
+            await channel.send(chunk, embed=chunk_embed)  # type: ignore[arg-type]
     elif text:
-        await channel.send(text, embed=discord_embed)
+        await channel.send(text, embed=discord_embed)  # type: ignore[arg-type]
     elif discord_embed:
         await channel.send(embed=discord_embed)
     else:
@@ -84,12 +102,9 @@ async def add_reaction_impl(
     emoji: str,
 ) -> dict[str, str]:
     """Add a reaction to a Discord message."""
-    channel = client.get_channel(int(channel_id))
+    channel = await _get_messageable(client, channel_id)
     if channel is None:
-        try:
-            channel = await client.fetch_channel(int(channel_id))
-        except Exception:
-            return {"status": "error", "message": f"Channel {channel_id} not found"}
+        return {"status": "error", "message": f"Channel {channel_id} not found"}
 
     try:
         message = await channel.fetch_message(int(message_id))
@@ -109,12 +124,9 @@ async def send_typing_impl(
     channel_id: str,
 ) -> dict[str, str]:
     """Show typing indicator in a Discord channel."""
-    channel = client.get_channel(int(channel_id))
+    channel = await _get_messageable(client, channel_id)
     if channel is None:
-        try:
-            channel = await client.fetch_channel(int(channel_id))
-        except Exception:
-            return {"status": "error", "message": f"Channel {channel_id} not found"}
+        return {"status": "error", "message": f"Channel {channel_id} not found"}
 
     await channel.typing()
     return {"status": "typing", "channel_id": channel_id}
@@ -125,7 +137,7 @@ async def list_channels_impl(
     guild_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """List all text and forum channels the bot can see."""
-    channels = []
+    channels: list[dict[str, Any]] = []
     for guild in client.guilds:
         if guild_id and str(guild.id) != guild_id:
             continue
@@ -151,12 +163,9 @@ async def get_recent_messages_impl(
 ) -> list[dict[str, Any]]:
     """Fetch recent messages from a Discord channel."""
     limit = min(limit, 50)
-    channel = client.get_channel(int(channel_id))
+    channel = await _get_messageable(client, channel_id)
     if channel is None:
-        try:
-            channel = await client.fetch_channel(int(channel_id))
-        except Exception:
-            return []
+        return []
 
     return [
         {
@@ -174,21 +183,22 @@ async def get_channel_info_impl(
     channel_id: str,
 ) -> dict[str, Any]:
     """Get detailed information about a Discord channel."""
-    channel = client.get_channel(int(channel_id))
-    if channel is None:
+    raw_channel = client.get_channel(int(channel_id))
+    if raw_channel is None:
         try:
-            channel = await client.fetch_channel(int(channel_id))
+            raw_channel = await client.fetch_channel(int(channel_id))
         except Exception:
             return {"error": f"Channel {channel_id} not found"}
 
-    info = {
-        "id": str(channel.id),
-        "name": getattr(channel, "name", "DM"),
-        "type": str(channel.type),
-        "topic": getattr(channel, "topic", None) or "",
+    info: dict[str, Any] = {
+        "id": str(raw_channel.id),
+        "name": getattr(raw_channel, "name", "DM"),
+        "type": str(getattr(raw_channel, "type", "unknown")),
+        "topic": getattr(raw_channel, "topic", None) or "",
     }
-    if hasattr(channel, "guild") and channel.guild:
-        info["guild_id"] = str(channel.guild.id)
-        info["guild_name"] = channel.guild.name
-        info["member_count"] = channel.guild.member_count
+    guild = getattr(raw_channel, "guild", None)
+    if guild is not None:
+        info["guild_id"] = str(guild.id)
+        info["guild_name"] = guild.name
+        info["member_count"] = guild.member_count
     return info

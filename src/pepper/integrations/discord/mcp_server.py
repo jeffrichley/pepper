@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -24,6 +25,8 @@ logging.basicConfig(
 log = logging.getLogger("pepper-mcp")
 
 # Import integration modules
+from apscheduler import AsyncScheduler  # noqa: E402
+
 from .bot import client, start_bot  # noqa: E402
 from .config import DISCORD_BOT_TOKEN, JOBS_YAML  # noqa: E402
 from .discord_tools import (  # noqa: E402
@@ -45,11 +48,11 @@ from .scheduler_tools import (  # noqa: E402
 )
 
 # Global scheduler reference (set in lifespan)
-_scheduler = None
+_scheduler: AsyncScheduler | None = None
 
 
 @asynccontextmanager
-async def lifespan(server: FastMCP):  # noqa: ARG001
+async def lifespan(server: FastMCP) -> AsyncIterator[None]:  # noqa: ARG001
     """Start Discord bot and scheduler on MCP server startup."""
     global _scheduler  # noqa: PLW0603
 
@@ -183,6 +186,8 @@ async def create_job(  # noqa: PLR0913
         channel_hint: Optional suggested Discord channel for context.
         timezone: Timezone for cron triggers (default: US/Eastern).
     """
+    if _scheduler is None:
+        return {"status": "error", "message": "Scheduler not initialized"}
     return await create_job_impl(
         _scheduler,
         name,
@@ -211,6 +216,8 @@ async def update_job(
         channel_hint: New channel hint (optional).
         timezone: New timezone (optional).
     """
+    if _scheduler is None:
+        return {"status": "error", "message": "Scheduler not initialized"}
     return await update_job_impl(
         _scheduler,
         name,
@@ -228,12 +235,16 @@ async def delete_job(name: str) -> dict[str, str]:
     Args:
         name: Job identifier to delete.
     """
+    if _scheduler is None:
+        return {"status": "error", "message": "Scheduler not initialized"}
     return await delete_job_impl(_scheduler, name)
 
 
 @mcp.tool()
 async def list_jobs() -> list[dict[str, Any]]:
     """List all scheduled jobs with their schedules and next run times."""
+    if _scheduler is None:
+        return []
     return await list_jobs_impl(_scheduler)
 
 
@@ -244,6 +255,8 @@ async def pause_job(name: str) -> dict[str, str]:
     Args:
         name: Job identifier to pause.
     """
+    if _scheduler is None:
+        return {"status": "error", "message": "Scheduler not initialized"}
     return await pause_job_impl(_scheduler, name)
 
 
@@ -254,10 +267,12 @@ async def resume_job(name: str) -> dict[str, str]:
     Args:
         name: Job identifier to resume.
     """
+    if _scheduler is None:
+        return {"status": "error", "message": "Scheduler not initialized"}
     return await resume_job_impl(_scheduler, name)
 
 
-def run():
+def run() -> None:
     """Entry point for pepper-discord command."""
     mcp.run(transport="stdio")
 
