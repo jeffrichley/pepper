@@ -5,6 +5,9 @@ description = "Pepper Second Brain"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiosqlite>=0.20.0",
+    "apscheduler>=4.0.0a5",
+    "discord.py>=2.7.0",
     "filelock>=3.25.2",
     "google-api-python-client>=2.0.0",
     "google-auth-httplib2>=0.2.0",
@@ -16,6 +19,7 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "pyyaml>=6.0.3",
     "rich>=14.3.3",
+    "sqlalchemy>=2.0.0",
     "typer>=0.24.1",
     "watchdog>=6.0.0",
 ]
@@ -23,17 +27,14 @@ dependencies = [
 [project.scripts]
 pepper = "pepper.cli:app"
 pepper-channel = "pepper.channel.server:main"
+pepper-discord = "pepper.integrations.discord.mcp_server:run"
 
 [dependency-groups]
 dev = [
-    "aiosqlite>=0.20.0",
-    "apscheduler>=4.0.0a5",
-    "discord-py>=2.0",
     "httpx>=0.28.1",
     "pytest>=9.0.2",
     "pytest-asyncio>=0.24.0",
     "ruff>=0.15.9",
-    "sqlalchemy[asyncio]>=2.0",
 ]
 
 [build-system]
