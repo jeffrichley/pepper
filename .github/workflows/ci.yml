@@ -1,0 +1,39 @@
+# GitHub Actions CI --- Dream tier
+# Copy to: .github/workflows/ci.yml
+#
+# Single job, single OS, single Python version.
+# If publishing a cross-platform library, add matrix entries as needed.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-groups
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Run full quality gate
+        run: just gate

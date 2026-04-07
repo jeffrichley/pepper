@@ -1,0 +1,47 @@
+# Pre-commit hooks: lean set focused on catching real problems fast.
+# Install: just hooks
+# Run manually: uv run pre-commit run --all-files
+
+repos:
+  # --- File hygiene (fast) ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  # --- Linting and formatting ---
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0  # CUSTOMIZE: pin to your ruff version
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  # --- Secret detection ---
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.0  # CUSTOMIZE: pin to latest
+    hooks:
+      - id: gitleaks
+
+  # --- Clean up unnecessary noqa comments ---
+  - repo: https://github.com/asottile/yesqa
+    rev: v1.5.0
+    hooks:
+      - id: yesqa
+
+  # --- Type checking (uncomment if pre-commit speed is acceptable) ---
+  # - repo: local
+  #   hooks:
+  #     - id: mypy
+  #       name: mypy
+  #       entry: uv run mypy src
+  #       language: system
+  #       types: [python]
+  #       pass_filenames: false
