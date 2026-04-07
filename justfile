@@ -1,6 +1,5 @@
 # Development task runner
 # Usage: just <target>
-# Phase 2: add -n auto to pytest commands after tests are reorganized for parallel safety
 
 # Cross-platform shell configuration
 set windows-shell := ["powershell", "-NoLogo", "-Command"]
@@ -10,12 +9,12 @@ set shell := ["sh", "-cu"]
 # Fast dev loop (~30s)
 # ---------------------------------------------------------------------------
 
-# Run fast quality checks + unit tests
+# Run fast quality checks + unit tests (parallel)
 check:
     uv run ruff check src tests
     uv run ruff format --check src tests
     uv run mypy src
-    uv run pytest -m unit
+    uv run pytest -m unit -n auto
 
 # ---------------------------------------------------------------------------
 # Full pre-merge gate (~3 min)
@@ -28,7 +27,8 @@ gate:
     uv run mypy src
     uv run xenon --max-absolute B --max-modules A --max-average A src
     uv run pip-audit
-    uv run pytest --cov --cov-report=term-missing --cov-report=html
+    uv run pytest -m unit -n auto --cov --cov-report=term-missing --cov-report=html
+    uv run pytest -m integration --cov --cov-append --cov-report=term-missing --cov-report=html
 
 # ---------------------------------------------------------------------------
 # Testing
@@ -36,13 +36,14 @@ gate:
 
 # Run all tests
 test:
-    uv run pytest
+    uv run pytest -m unit -n auto
+    uv run pytest -m integration
 
-# Run unit tests only
+# Run unit tests only (parallel)
 test-unit:
-    uv run pytest -m unit
+    uv run pytest -m unit -n auto
 
-# Run integration tests only
+# Run integration tests only (serial — shared ports)
 test-integration:
     uv run pytest -m integration
 
@@ -50,9 +51,14 @@ test-integration:
 test-e2e:
     uv run pytest -m e2e
 
+# Run slow tests (requires Claude Code, API tokens)
+test-slow:
+    uv run pytest -m slow
+
 # Run tests with coverage report
 test-cov:
-    uv run pytest --cov --cov-report=term-missing --cov-report=html
+    uv run pytest -m unit -n auto --cov --cov-report=term-missing --cov-report=html
+    uv run pytest -m integration --cov --cov-append --cov-report=term-missing --cov-report=html
 
 # ---------------------------------------------------------------------------
 # Code quality (individual tools)

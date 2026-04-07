@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-VAULT = Path(__file__).parent.parent / "Memory"
+VAULT = Path(__file__).parent.parent.parent / "Memory"
 
 
 @pytest.mark.slow

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-JOBS_YAML = Path(__file__).parent.parent / "src" / "pepper" / "integrations" / "discord" / "jobs.yaml"
+JOBS_YAML = Path(__file__).parent.parent.parent / "src" / "pepper" / "integrations" / "discord" / "jobs.yaml"
 
 
 def test_jobs_yaml_loads():
