@@ -1,20 +1,27 @@
 """Pepper Channel Server — Python MCP + HTTP message router.
 
-MCP server over stdio for Claude Code integration.
+Low-level MCP server over stdio for Claude Code integration.
 HTTP server for external integrations (Discord, email, etc.).
+
+Uses the low-level MCP Server API (not FastMCP) to support custom
+notifications via the experimental 'claude/channel' capability.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import sys
 import time
+import threading
 from datetime import datetime, timezone
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+import mcp.types as types
+from mcp.server.lowlevel.server import Server, NotificationOptions, request_ctx
+from mcp.server.stdio import stdio_server
 
 from pepper.channel.router import Router
 
@@ -37,12 +44,27 @@ def emit_to_source(source: str, data: dict) -> None:
         emit(chunk)
 
 
+# --- Notification bridge (HTTP thread -> MCP event loop) ---
+
+_notification_queue: asyncio.Queue | None = None
+_mcp_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _enqueue_notification(content: str, meta: dict[str, str]) -> None:
+    """Thread-safe: enqueue a notification for the MCP event loop to send."""
+    if _notification_queue is not None and _mcp_loop is not None:
+        _mcp_loop.call_soon_threadsafe(
+            _notification_queue.put_nowait,
+            {"content": content, "meta": meta},
+        )
+
+
 # --- HTTP app (ASGI) ---
 
 _start_time = time.monotonic()
 
 
-def create_http_app(router: Router, mcp_server: FastMCP | None = None):
+def create_http_app(router: Router):
     """Create an ASGI app with channel HTTP endpoints."""
 
     async def app(scope, receive, send):
@@ -96,6 +118,9 @@ def create_http_app(router: Router, mcp_server: FastMCP | None = None):
             for k, v in data.get("metadata", {}).items():
                 meta[k] = str(v)
 
+            # Notify Claude Code via MCP notification bridge
+            _enqueue_notification(content, meta)
+
             emit_to_source(source, {"chat_id": chat_id, "content": content, "meta": meta})
             await _json_response(send, 200, {"status": "queued", "chat_id": chat_id})
             return
@@ -123,52 +148,131 @@ async def _json_response(send, status: int, data: dict) -> None:
     await send({"type": "http.response.body", "body": body})
 
 
-# --- MCP Server ---
+# --- MCP Server (low-level API) ---
 
-def create_mcp_server(router: Router) -> FastMCP:
-    """Create the MCP server with the reply tool."""
+def create_mcp_server(router: Router) -> Server:
+    """Create the low-level MCP server with reply tool and channel notification support."""
 
-    mcp = FastMCP(
-        "pepper-channel",
+    server = Server(
+        name="pepper-channel",
+        version="2.0.0",
         instructions=(
-            'Messages arrive as <channel source="pepper-channel" chat_id="..." sender="..." integration="...">. '
-            "These are from external systems (Discord, email, heartbeat) talking to you. "
-            "Reply with the reply tool, passing the chat_id from the tag. "
+            'Messages arrive as notifications with method "notifications/claude/channel". '
+            'The notification params contain "content" (the message text) and "meta" '
+            '(with chat_id, sender, integration, and other metadata). '
+            "Reply with the reply tool, passing the chat_id from the notification meta. "
             "You can include metadata in your reply: reactions (array of emoji names), "
             'type ("message" or "reaction" for reaction-only), and embed (object with title, description, color, fields). '
             "Treat each message as a task or conversation to handle."
         ),
     )
 
-    @mcp.tool()
-    def reply(
-        chat_id: str,
-        text: str = "",
-        metadata: dict[str, Any] | None = None,
-    ) -> str:
-        """Send a reply back through the channel to the integration that sent the message.
+    @server.list_tools()
+    async def handle_list_tools() -> list[types.Tool]:
+        return [
+            types.Tool(
+                name="reply",
+                description="Send a reply back through the channel to the integration that sent the message",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "chat_id": {
+                            "type": "string",
+                            "description": "The conversation to reply in (from the channel notification meta)",
+                        },
+                        "text": {
+                            "type": "string",
+                            "description": "The message to send",
+                        },
+                        "metadata": {
+                            "type": "object",
+                            "description": 'Optional: reactions (emoji array), type ("message"|"reaction"), embed (object with title/description/color/fields)',
+                            "properties": {
+                                "reactions": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Emoji names to react with",
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "enum": ["message", "reaction"],
+                                    "description": "Reply type: message (default) or reaction-only",
+                                },
+                                "embed": {
+                                    "type": "object",
+                                    "description": "Rich embed with title, description, color (int), fields (array of {name, value, inline})",
+                                },
+                            },
+                        },
+                    },
+                    "required": ["chat_id"],
+                },
+            )
+        ]
 
-        Args:
-            chat_id: The conversation to reply in (from the channel tag).
-            text: The message to send.
-            metadata: Optional dict with reactions (emoji array), type ("message"|"reaction"), embed.
-        """
+    @server.call_tool()
+    async def handle_call_tool(
+        name: str,
+        arguments: dict[str, Any] | None = None,
+    ) -> list[types.TextContent]:
+        if name != "reply":
+            raise ValueError(f"unknown tool: {name}")
+
+        arguments = arguments or {}
+        chat_id = arguments.get("chat_id", "")
+        text = arguments.get("text", "")
+        metadata = arguments.get("metadata", {})
+
         source = router.lookup(chat_id) or "unknown"
         reply_data = {
             "chat_id": chat_id,
             "text": text,
-            "metadata": metadata or {},
+            "metadata": metadata,
             "source": source,
             "ts": datetime.now(timezone.utc).isoformat(),
         }
         emit_to_source(source, reply_data)
-        return "sent"
 
-    return mcp
+        return [types.TextContent(type="text", text="sent")]
+
+    return server
+
+
+async def _notification_pump(server: Server, read_stream, write_stream) -> None:
+    """Drain the notification queue and send MCP notifications to Claude Code.
+
+    This runs on the MCP event loop and sends custom notifications
+    that were enqueued by the HTTP thread.
+    """
+    global _notification_queue
+    _notification_queue = asyncio.Queue()
+
+    # We need the session to send notifications, but the session is created
+    # inside server.run(). Instead, we'll send raw JSON-RPC notifications
+    # directly to the write stream.
+    from mcp.shared.session import SessionMessage
+    from mcp.types import JSONRPCNotification
+
+    while True:
+        item = await _notification_queue.get()
+        try:
+            # Build a raw JSON-RPC notification (custom method)
+            notification = JSONRPCNotification(
+                jsonrpc="2.0",
+                method="notifications/claude/channel",
+                params=item,  # {"content": "...", "meta": {...}}
+            )
+            message = SessionMessage(message=notification)
+            await write_stream.send(message)
+            log.debug(f"Sent channel notification: {item.get('meta', {}).get('chat_id', 'unknown')}")
+        except Exception as e:
+            log.error(f"Failed to send notification: {e}")
 
 
 def main() -> None:
     """Entry point for pepper-channel. Runs MCP over stdio + HTTP server."""
+    global _mcp_loop
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -179,22 +283,44 @@ def main() -> None:
     ttl_hours = int(os.environ.get("PEPPER_ROUTE_TTL_HOURS", "24"))
 
     router = Router(ttl_seconds=ttl_hours * 3600)
-    mcp = create_mcp_server(router)
-    http_app = create_http_app(router, mcp)
+    server = create_mcp_server(router)
+    http_app = create_http_app(router)
 
-    # Start HTTP server in a background thread
-    import threading
-    import uvicorn
+    async def run():
+        global _mcp_loop
+        _mcp_loop = asyncio.get_running_loop()
 
-    config = uvicorn.Config(http_app, host="127.0.0.1", port=port, log_level="warning")
-    http_server = uvicorn.Server(config)
-    http_thread = threading.Thread(target=http_server.run, daemon=True)
-    http_thread.start()
+        # Start HTTP server in a background thread
+        import uvicorn
+        config = uvicorn.Config(http_app, host="127.0.0.1", port=port, log_level="warning")
+        http_server = uvicorn.Server(config)
+        http_thread = threading.Thread(target=http_server.run, daemon=True)
+        http_thread.start()
 
-    log.info(f"Pepper channel server v2.0.0 (Python) listening on http://127.0.0.1:{port}")
+        log.info(f"Pepper channel server v2.0.0 (Python) listening on http://127.0.0.1:{port}")
 
-    # Run MCP server on stdio (blocks)
-    mcp.run(transport="stdio")
+        async with stdio_server() as (read_stream, write_stream):
+            init_options = server.create_initialization_options(
+                notification_options=NotificationOptions(),
+                experimental_capabilities={"claude/channel": {}},
+            )
+
+            # Start notification pump alongside the MCP server
+            pump_task = asyncio.create_task(
+                _notification_pump(server, read_stream, write_stream)
+            )
+
+            try:
+                await server.run(
+                    read_stream,
+                    write_stream,
+                    init_options,
+                    raise_exceptions=False,
+                )
+            finally:
+                pump_task.cancel()
+
+    asyncio.run(run())
 
 
 if __name__ == "__main__":
