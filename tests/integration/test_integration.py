@@ -4,7 +4,6 @@ Tests concurrent writes and hook lifecycle.
 """
 
 import threading
-from pathlib import Path
 
 from pepper.hooks.shared import append_to_daily_log, get_daily_log_path
 

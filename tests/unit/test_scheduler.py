@@ -5,7 +5,14 @@ from pathlib import Path
 import pytest
 import yaml
 
-JOBS_YAML = Path(__file__).parent.parent.parent / "src" / "pepper" / "integrations" / "discord" / "jobs.yaml"
+JOBS_YAML = (
+    Path(__file__).parent.parent.parent
+    / "src"
+    / "pepper"
+    / "integrations"
+    / "discord"
+    / "jobs.yaml"
+)
 
 
 def test_jobs_yaml_loads():
@@ -31,7 +38,9 @@ def test_jobs_yaml_required_fields():
             assert "function" in job, f"Function job {name} missing function"
         else:
             assert "prompt" in job, f"Job {name} missing prompt"
-        assert job["trigger"] in ("interval", "cron", "once"), f"Job {name} has invalid trigger"
+        assert job["trigger"] in ("interval", "cron", "once"), (
+            f"Job {name} has invalid trigger"
+        )
 
 
 def test_load_seed_jobs():
@@ -52,7 +61,9 @@ async def test_execute_job_posts_to_channel():
 
     from pepper.integrations.discord.scheduler import execute_job
 
-    with patch("pepper.integrations.discord.scheduler.httpx.AsyncClient") as mock_client_cls:
+    with patch(
+        "pepper.integrations.discord.scheduler.httpx.AsyncClient"
+    ) as mock_client_cls:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)

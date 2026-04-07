@@ -10,7 +10,6 @@ from pathlib import Path
 
 from jinja2 import Environment, PackageLoader
 
-
 VAULT_SCAFFOLD_DIRS = [
     "daily/raw",
     "daily/summaries",
@@ -54,15 +53,12 @@ TIER_1_FILES = {
         "- **Timezone:** [Your timezone]\n"
     ),
     "MEMORY.md": (
-        "# Memory\n\n"
-        "## Active Projects\n\n"
-        "## Meeting Decisions\n\n"
-        "## Research Notes\n"
+        "# Memory\n\n## Active Projects\n\n## Meeting Decisions\n\n## Research Notes\n"
     ),
     "OPERATIONS.md": (
         "# Operations\n\n"
         "## Vault\n"
-        '- **Location:** Memory/\n'
+        "- **Location:** Memory/\n"
         '- **Search:** `uv run qmd search vault "query"` for semantic search\n'
     ),
 }
@@ -127,7 +123,8 @@ def generate_runtime(
     for dir_path in VAULT_SCAFFOLD_DIRS:
         (vault / dir_path).mkdir(parents=True, exist_ok=True)
 
-    # Only create default Tier 1 files if they don't already exist (from migration or prior init)
+    # Only create default Tier 1 files if they don't already exist
+    # (from migration or prior init)
     for filename, default_content in TIER_1_FILES.items():
         filepath = vault / filename
         if not filepath.exists():
@@ -141,7 +138,7 @@ def generate_runtime(
 
 def _install_skills(runtime_path: Path) -> None:
     """Copy skills from the installed package to the runtime .claude/skills/."""
-    import shutil
+    import shutil  # noqa: PLC0415
 
     skills_source = Path(__file__).parent.parent / "skills"
     if not skills_source.is_dir():
@@ -155,7 +152,7 @@ def _install_skills(runtime_path: Path) -> None:
 
 def _migrate_vault(source: Path, dest: Path) -> None:
     """Copy vault contents from source to dest, skipping existing files."""
-    import shutil
+    import shutil  # noqa: PLC0415
 
     for item in source.rglob("*"):
         if item.is_file():

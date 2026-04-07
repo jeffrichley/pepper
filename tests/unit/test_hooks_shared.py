@@ -1,9 +1,8 @@
 """Tests for pepper.hooks.shared — vault path resolution and utilities."""
 
-import os
 from pathlib import Path
 
-from pepper.hooks.shared import get_vault_path, TIER_1_FILES
+from pepper.hooks.shared import TIER_1_FILES, get_vault_path
 
 
 def test_vault_path_from_env(tmp_path, monkeypatch):

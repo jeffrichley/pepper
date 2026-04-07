@@ -7,7 +7,6 @@ with age-based and size-based cleanup.
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -82,7 +81,11 @@ def cleanup_attachments() -> dict[str, int]:
                 count = sum(1 for _ in date_dir.rglob("*") if _.is_file())
                 shutil.rmtree(date_dir)
                 deleted_age += count
-                log.info(f"Cleaned up {date_dir.name} ({count} files, older than {MAX_AGE_DAYS} days)")
+                log.info(
+                    f"Cleaned up {date_dir.name}"
+                    f" ({count} files, older than"
+                    f" {MAX_AGE_DAYS} days)"
+                )
         except ValueError:
             continue  # skip non-date directories
 

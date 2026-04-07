@@ -62,7 +62,8 @@ async def execute_function_job(name: str, module_path: str):
     """Execute a scheduled function job by importing and calling the function."""
     try:
         module_name, func_name = module_path.rsplit(":", 1)
-        import importlib
+        import importlib  # noqa: PLC0415
+
         module = importlib.import_module(module_name)
         func = getattr(module, func_name)
         result = func()
@@ -96,7 +97,7 @@ async def execute_job(name: str, prompt: str, channel_hint: str = ""):
                 json=payload,
                 timeout=10.0,
             )
-            if resp.status_code == 200:
+            if resp.status_code == 200:  # noqa: PLR2004
                 log.info(f"Job {name} fired (chat_id: {chat_id})")
             else:
                 log.error(f"Job {name} failed: {resp.status_code} {resp.text}")

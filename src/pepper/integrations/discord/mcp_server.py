@@ -24,9 +24,9 @@ logging.basicConfig(
 log = logging.getLogger("pepper-mcp")
 
 # Import integration modules
-from .bot import client, start_bot
-from .config import DISCORD_BOT_TOKEN, JOBS_YAML
-from .discord_tools import (
+from .bot import client, start_bot  # noqa: E402
+from .config import DISCORD_BOT_TOKEN, JOBS_YAML  # noqa: E402
+from .discord_tools import (  # noqa: E402
     add_reaction_impl,
     get_channel_info_impl,
     get_recent_messages_impl,
@@ -34,8 +34,8 @@ from .discord_tools import (
     send_discord_message_impl,
     send_typing_impl,
 )
-from .scheduler import create_scheduler, seed_default_jobs
-from .scheduler_tools import (
+from .scheduler import create_scheduler, seed_default_jobs  # noqa: E402
+from .scheduler_tools import (  # noqa: E402
     create_job_impl,
     delete_job_impl,
     list_jobs_impl,
@@ -49,9 +49,9 @@ _scheduler = None
 
 
 @asynccontextmanager
-async def lifespan(server: FastMCP):
+async def lifespan(server: FastMCP):  # noqa: ARG001
     """Start Discord bot and scheduler on MCP server startup."""
-    global _scheduler
+    global _scheduler  # noqa: PLW0603
 
     log.info("Starting Pepper Discord integration...")
 
@@ -164,7 +164,7 @@ async def get_channel_info(channel_id: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-async def create_job(
+async def create_job(  # noqa: PLR0913
     name: str,
     trigger: str,
     schedule: dict[str, Any],
@@ -177,12 +177,21 @@ async def create_job(
     Args:
         name: Unique job identifier (snake_case).
         trigger: Trigger type: "interval" or "cron".
-        schedule: For interval: {minutes, hours, seconds}. For cron: {hour, minute, day_of_week, day, month}.
+        schedule: For interval: {minutes, hours, seconds}.
+            For cron: {hour, minute, day_of_week, day, month}.
         prompt: The prompt to send to Pepper when this job fires.
         channel_hint: Optional suggested Discord channel for context.
         timezone: Timezone for cron triggers (default: US/Eastern).
     """
-    return await create_job_impl(_scheduler, name, trigger, schedule, prompt, channel_hint, timezone)
+    return await create_job_impl(
+        _scheduler,
+        name,
+        trigger,
+        schedule,
+        prompt,
+        channel_hint,
+        timezone,
+    )
 
 
 @mcp.tool()
@@ -202,7 +211,14 @@ async def update_job(
         channel_hint: New channel hint (optional).
         timezone: New timezone (optional).
     """
-    return await update_job_impl(_scheduler, name, schedule, prompt, channel_hint, timezone)
+    return await update_job_impl(
+        _scheduler,
+        name,
+        schedule,
+        prompt,
+        channel_hint,
+        timezone,
+    )
 
 
 @mcp.tool()

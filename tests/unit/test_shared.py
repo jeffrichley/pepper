@@ -1,13 +1,11 @@
 """Tests for hook shared utilities."""
 
-from pathlib import Path
-
 from pepper.hooks.shared import (
-    get_vault_path,
-    read_tier1_files,
-    get_daily_log_path,
     append_to_daily_log,
+    get_daily_log_path,
+    get_vault_path,
     read_recent_summaries,
+    read_tier1_files,
 )
 
 

@@ -12,10 +12,15 @@ def test_pre_compact_returns_nudge(temp_vault, mock_stdin_data):
     result = _run_hook(temp_vault, stdin)
     data = json.loads(result)
     assert "systemMessage" in data
-    assert "compacted" in data["systemMessage"].lower() or "unsaved" in data["systemMessage"].lower()
+    assert (
+        "compacted" in data["systemMessage"].lower()
+        or "unsaved" in data["systemMessage"].lower()
+    )
 
 
-def test_pre_compact_does_not_dump_transcript(temp_vault, mock_stdin_data, temp_transcript):
+def test_pre_compact_does_not_dump_transcript(
+    temp_vault, mock_stdin_data, temp_transcript
+):
     """PreCompact should NOT write the raw transcript to the daily log."""
     stdin = mock_stdin_data(
         session_id="compact-sess-1",

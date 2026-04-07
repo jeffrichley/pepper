@@ -1,21 +1,21 @@
 """SessionStart hook: inject Tier 1 context into every Claude Code session."""
 
+import contextlib
 import json
 
 from pepper.hooks.shared import (
     get_vault_path,
-    read_tier1_files,
     read_recent_summaries,
     read_stdin,
+    read_tier1_files,
     write_stdout,
 )
 
 
 def main():
-    try:
+    """Inject Tier 1 context into the Claude Code session."""
+    with contextlib.suppress(json.JSONDecodeError, EOFError):
         read_stdin()
-    except (json.JSONDecodeError, EOFError):
-        pass
 
     vault = get_vault_path()
 

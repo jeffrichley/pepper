@@ -18,9 +18,10 @@ from typing import Any
 import discord
 import httpx
 
+from pepper.attachments import download_attachment
+
 from .config import CHANNEL_URL
 from .embeds import build_embed
-from pepper.attachments import download_attachment
 
 log = logging.getLogger("pepper-discord")
 
@@ -28,6 +29,9 @@ log = logging.getLogger("pepper-discord")
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
+
+DISCORD_MSG_LIMIT = 2000
+_MAX_EMOJI_LEN = 2
 
 # Track pending messages so we can hold typing indicators
 pending_chat_ids: dict[str, discord.abc.Messageable] = {}
@@ -48,7 +52,10 @@ async def on_ready():
         try:
             await http.post(
                 f"{CHANNEL_URL}/register",
-                json={"source": "discord", "description": f"Discord bot: {client.user.name}"},
+                json={
+                    "source": "discord",
+                    "description": f"Discord bot: {client.user.name}",
+                },
             )
             log.info("Registered with channel server")
         except httpx.ConnectError:
@@ -79,12 +86,14 @@ async def on_message(message: discord.Message):
             message_id=str(message.id),
         )
         if local_path:
-            attachment_infos.append({
-                "filename": att.filename,
-                "content_type": att.content_type or "unknown",
-                "path": str(local_path),
-                "size_bytes": local_path.stat().st_size,
-            })
+            attachment_infos.append(
+                {
+                    "filename": att.filename,
+                    "content_type": att.content_type or "unknown",
+                    "path": str(local_path),
+                    "size_bytes": local_path.stat().st_size,
+                }
+            )
             content += f"\n[📎 {att.filename}]"
 
     metadata = {
@@ -117,11 +126,13 @@ async def on_message(message: discord.Message):
                     json=payload,
                     timeout=10.0,
                 )
-                if resp.status_code != 200:
+                if resp.status_code != 200:  # noqa: PLR2004
                     log.error(f"Channel server error: {resp.status_code} {resp.text}")
         except httpx.ConnectError:
             log.error("Channel server unreachable")
-            await message.channel.send("I'm having trouble connecting right now. Try again in a moment.")
+            await message.channel.send(
+                "I'm having trouble connecting right now. Try again in a moment.",
+            )
 
 
 async def listen_for_replies():
@@ -131,21 +142,23 @@ async def listen_for_replies():
 
     while True:
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(None)) as http:
-                async with http.stream("GET", f"{CHANNEL_URL}/events?source=discord") as resp:
-                    backoff = 1.0  # Reset on successful connection
-                    log.info("Connected to channel server SSE stream")
+            async with (
+                httpx.AsyncClient(timeout=httpx.Timeout(None)) as http,
+                http.stream("GET", f"{CHANNEL_URL}/events?source=discord") as resp,
+            ):
+                backoff = 1.0  # Reset on successful connection
+                log.info("Connected to channel server SSE stream")
 
-                    async for line in resp.aiter_lines():
-                        if not line.startswith("data: "):
-                            continue
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
 
-                        try:
-                            data = json.loads(line[6:])
-                        except json.JSONDecodeError:
-                            continue
+                    try:
+                        data = json.loads(line[6:])
+                    except json.JSONDecodeError:
+                        continue
 
-                        await handle_reply(data)
+                    await handle_reply(data)
 
         except (httpx.ConnectError, httpx.ReadError) as e:
             log.warning(f"SSE connection lost: {e}. Reconnecting in {backoff}s...")
@@ -153,7 +166,7 @@ async def listen_for_replies():
             backoff = min(backoff * 2, max_backoff)
 
 
-async def handle_reply(data: dict[str, Any]):
+async def handle_reply(data: dict[str, Any]):  # noqa: C901, PLR0912, PLR0915
     """Process a reply from the channel server and send it to Discord."""
     chat_id = data.get("chat_id", "")
     text = data.get("text", "")
@@ -162,9 +175,7 @@ async def handle_reply(data: dict[str, Any]):
     # Parse chat_id to find the channel
     parts = chat_id.split("-")
     try:
-        if parts[0] == "discord" and parts[1] == "dm":
-            channel_id = int(parts[2])
-        elif parts[0] == "discord":
+        if (parts[0] == "discord" and parts[1] == "dm") or parts[0] == "discord":
             channel_id = int(parts[2])
         else:
             log.warning(f"Unknown chat_id format: {chat_id}")
@@ -192,9 +203,7 @@ async def handle_reply(data: dict[str, Any]):
     # Try to find the original message for reactions
     original_message_id = None
     try:
-        if parts[0] == "discord" and parts[1] == "dm":
-            original_message_id = int(parts[3])
-        elif parts[0] == "discord":
+        if (parts[0] == "discord" and parts[1] == "dm") or parts[0] == "discord":
             original_message_id = int(parts[3])
     except (IndexError, ValueError):
         pass
@@ -207,7 +216,9 @@ async def handle_reply(data: dict[str, Any]):
                 if emoji:
                     await original.add_reaction(emoji)
         except discord.NotFound:
-            log.warning(f"Original message {original_message_id} not found for reactions")
+            log.warning(
+                f"Original message {original_message_id} not found for reactions",
+            )
 
     # If reaction-only, we're done
     if reply_type == "reaction":
@@ -232,11 +243,14 @@ async def handle_reply(data: dict[str, Any]):
 
     if text:
         # Discord has a 2000 char limit per message
-        if len(text) <= 2000:
+        if len(text) <= DISCORD_MSG_LIMIT:
             await channel.send(text, embed=embed, files=files or None)
         else:
             # Split into chunks, attach files to last chunk
-            chunks = [text[i:i + 2000] for i in range(0, len(text), 2000)]
+            chunks = [
+                text[i : i + DISCORD_MSG_LIMIT]
+                for i in range(0, len(text), DISCORD_MSG_LIMIT)
+            ]
             for i, chunk in enumerate(chunks):
                 is_last = i == len(chunks) - 1
                 await channel.send(
@@ -272,7 +286,7 @@ EMOJI_MAP = {
 
 def _resolve_emoji(name: str) -> str | None:
     """Resolve an emoji name to a unicode character."""
-    return EMOJI_MAP.get(name, name if len(name) <= 2 else None)
+    return EMOJI_MAP.get(name, name if len(name) <= _MAX_EMOJI_LEN else None)
 
 
 async def keep_typing():
@@ -293,6 +307,6 @@ async def start_bot(token: str):
     which is the async version of client.run().
     """
     log.info("Starting Discord bot...")
-    asyncio.create_task(listen_for_replies())
-    asyncio.create_task(keep_typing())
+    asyncio.create_task(listen_for_replies())  # noqa: RUF006
+    asyncio.create_task(keep_typing())  # noqa: RUF006
     await client.start(token)

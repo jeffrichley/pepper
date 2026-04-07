@@ -1,15 +1,20 @@
 """Pepper CLI — manage your Second Brain runtime."""
 
 import subprocess
-import sys
 from pathlib import Path
 
 import typer
 from rich import print as rprint
 
 from pepper.init.generator import generate_runtime
-from pepper.process import get_runtime_path, get_pid_file, write_pid, read_pid, remove_pid, is_process_alive
-
+from pepper.process import (
+    get_pid_file,
+    get_runtime_path,
+    is_process_alive,
+    read_pid,
+    remove_pid,
+    write_pid,
+)
 
 app = typer.Typer(
     name="pepper",
@@ -20,8 +25,14 @@ app = typer.Typer(
 
 @app.command()
 def init(
-    migrate: bool = typer.Option(False, help="Migrate existing Memory/ vault from the repo"),
-    repo_vault: str = typer.Option("", help="Path to existing Memory/ vault to migrate from"),
+    migrate: bool = typer.Option(
+        False,
+        help="Migrate existing Memory/ vault from the repo",
+    ),
+    repo_vault: str = typer.Option(
+        "",
+        help="Path to existing Memory/ vault to migrate from",
+    ),
 ) -> None:
     """Initialize the Pepper runtime workspace at ~/.pepper/."""
     runtime_path = get_runtime_path()
@@ -35,7 +46,11 @@ def init(
             if cwd_vault.is_dir():
                 migrate_from = cwd_vault
             else:
-                rprint("[red]No Memory/ directory found. Use --repo-vault to specify the path.[/red]")
+                rprint(
+                    "[red]No Memory/ directory found."
+                    " Use --repo-vault to specify"
+                    " the path.[/red]"
+                )
                 raise typer.Exit(1)
 
         if not migrate_from.is_dir():
@@ -45,7 +60,10 @@ def init(
         rprint(f"Migrating vault from {migrate_from}...")
 
     if runtime_path.exists() and not migrate:
-        rprint("[yellow]~/.pepper/ already exists.[/yellow] Config files will be regenerated.")
+        rprint(
+            "[yellow]~/.pepper/ already exists.[/yellow]"
+            " Config files will be regenerated.",
+        )
         rprint("Vault files will NOT be overwritten.")
 
     result = generate_runtime(
@@ -53,7 +71,9 @@ def init(
         migrate_from=migrate_from,
     )
 
-    rprint(f"[green]Pepper runtime initialized at {result}[/green]")
+    rprint(
+        f"[green]Pepper runtime initialized at {result}[/green]",
+    )
     if migrate_from:
         rprint("[green]Vault contents migrated successfully.[/green]")
     rprint("\nTo start Pepper:")
@@ -63,7 +83,10 @@ def init(
 
 @app.command()
 def start(
-    background: bool = typer.Option(False, help="Run Pepper in the background (headless)"),
+    background: bool = typer.Option(
+        False,
+        help="Run Pepper in the background (headless)",
+    ),
 ) -> None:
     """Start Pepper. Auto-updates runtime config before launching."""
     runtime_path = get_runtime_path()
@@ -80,7 +103,7 @@ def start(
 def _start_interactive(runtime_path: Path) -> None:
     """Launch Claude Code interactively in the runtime directory."""
     rprint(f"[green]Starting Pepper at {runtime_path}...[/green]")
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: PLW1510
         ["claude", "--dangerously-load-development-channels", "server:pepper-channel"],
         cwd=str(runtime_path),
     )
@@ -101,7 +124,8 @@ def _start_background(runtime_path: Path) -> None:
         [
             "claude",
             "--dangerously-skip-permissions",
-            "--dangerously-load-development-channels", "server:pepper-channel",
+            "--dangerously-load-development-channels",
+            "server:pepper-channel",
             "-p",
             "You are Pepper. Monitor Discord and handle scheduled tasks.",
         ],
@@ -118,7 +142,7 @@ def _start_background(runtime_path: Path) -> None:
 @app.command()
 def stop() -> None:
     """Stop a background Pepper instance."""
-    from pepper.process import kill_process_tree
+    from pepper.process import kill_process_tree  # noqa: PLC0415
 
     pid_file = get_pid_file()
     pid = read_pid(pid_file)

@@ -37,14 +37,14 @@ class Router:
         """Remove all expired routes."""
         now = time.monotonic()
         expired = [
-            cid for cid, (_, ts) in self._routes.items()
-            if now - ts >= self.ttl_seconds
+            cid for cid, (_, ts) in self._routes.items() if now - ts >= self.ttl_seconds
         ]
         for cid in expired:
             del self._routes[cid]
 
     @property
     def size(self) -> int:
+        """Return the number of active routes."""
         return len(self._routes)
 
     def register_source(self, source: str, description: str = "") -> None:
@@ -53,4 +53,5 @@ class Router:
 
     @property
     def registered_sources(self) -> list[str]:
+        """Return the list of registered source names."""
         return list(self._sources.keys())

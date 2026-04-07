@@ -57,7 +57,9 @@ async def test_send_discord_message_not_found(mock_client):
 async def test_list_channels(mock_client):
     client, channel = mock_client
     # Need to make channel pass isinstance check
-    channel.__class__ = type("TextChannel", (), {"__instancecheck__": lambda cls, inst: True})
+    channel.__class__ = type(
+        "TextChannel", (), {"__instancecheck__": lambda cls, inst: True}
+    )
     from pepper.integrations.discord.discord_tools import list_channels_impl
 
     result = await list_channels_impl(client)

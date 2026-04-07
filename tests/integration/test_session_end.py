@@ -17,7 +17,9 @@ def test_session_end_returns_empty_json(temp_vault, mock_stdin_data):
     assert data == {}
 
 
-def test_session_end_does_not_dump_transcript(temp_vault, mock_stdin_data, temp_transcript):
+def test_session_end_does_not_dump_transcript(
+    temp_vault, mock_stdin_data, temp_transcript
+):
     """SessionEnd should NOT write the raw transcript to the daily log."""
     stdin = mock_stdin_data(
         session_id="end-sess-2",

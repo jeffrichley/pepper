@@ -64,11 +64,10 @@ def append_to_daily_log(
 
     header = f"\n\n## {now} [{source}] (session: {session_id})\n\n"
 
-    with FileLock(lock_path):
-        with open(log_path, "a", encoding="utf-8") as f:
-            f.write(header)
-            f.write(content)
-            f.write("\n")
+    with FileLock(lock_path), open(log_path, "a", encoding="utf-8") as f:
+        f.write(header)
+        f.write(content)
+        f.write("\n")
 
 
 def session_already_logged(vault_path: Path, session_id: str) -> bool:

@@ -3,7 +3,6 @@
 Tests the Python channel server HTTP API directly.
 """
 
-import socket
 import threading
 import time
 
@@ -11,8 +10,8 @@ import httpx
 import pytest
 import uvicorn
 
-from pepper.channel.server import create_http_app
 from pepper.channel.router import Router
+from pepper.channel.server import create_http_app
 
 PORT = 18788  # Use a non-default port to avoid conflicts
 

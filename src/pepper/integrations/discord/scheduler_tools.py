@@ -28,16 +28,16 @@ async def list_jobs_impl(scheduler: AsyncScheduler) -> list[dict[str, Any]]:
             "next_run": s.next_fire_time.isoformat() if s.next_fire_time else None,
             "paused": getattr(s, "paused", False),
         }
-        if s.args and len(s.args) >= 2:
+        if s.args and len(s.args) >= 2:  # noqa: PLR2004
             job_info["prompt"] = s.args[1]
-        if s.args and len(s.args) >= 3:
+        if s.args and len(s.args) >= 3:  # noqa: PLR2004
             job_info["channel_hint"] = s.args[2]
         result.append(job_info)
 
     return result
 
 
-async def create_job_impl(
+async def create_job_impl(  # noqa: PLR0913
     scheduler: AsyncScheduler,
     name: str,
     trigger: str,
@@ -69,7 +69,7 @@ async def create_job_impl(
     return {"status": "created", "name": name}
 
 
-async def update_job_impl(
+async def update_job_impl(  # noqa: PLR0913
     scheduler: AsyncScheduler,
     name: str,
     schedule: dict[str, Any] | None = None,
@@ -83,8 +83,16 @@ async def update_job_impl(
     except Exception:
         return {"status": "error", "message": f"Job {name} not found"}
 
-    current_prompt = existing.args[1] if existing.args and len(existing.args) >= 2 else ""
-    current_hint = existing.args[2] if existing.args and len(existing.args) >= 3 else ""
+    current_prompt = (
+        existing.args[1]
+        if existing.args and len(existing.args) >= 2  # noqa: PLR2004
+        else ""
+    )
+    current_hint = (
+        existing.args[2]
+        if existing.args and len(existing.args) >= 3  # noqa: PLR2004
+        else ""
+    )
 
     await scheduler.remove_schedule(name)
 

@@ -5,7 +5,6 @@ PID file operations and cross-platform process management.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import psutil
@@ -54,6 +53,6 @@ def kill_process_tree(pid: int) -> None:
         for child in children:
             child.kill()
         parent.kill()
-        psutil.wait_procs(children + [parent], timeout=5)
+        psutil.wait_procs([*children, parent], timeout=5)
     except psutil.NoSuchProcess:
         pass

@@ -8,8 +8,8 @@ import httpx
 import pytest
 import uvicorn
 
-from pepper.channel.server import create_http_app
 from pepper.channel.router import Router
+from pepper.channel.server import create_http_app
 
 
 @pytest.fixture
@@ -52,7 +52,9 @@ def test_health(server_url):
 
 
 def test_register(server_url):
-    resp = httpx.post(f"{server_url}/register", json={"source": "test-bot", "description": "Test"})
+    resp = httpx.post(
+        f"{server_url}/register", json={"source": "test-bot", "description": "Test"}
+    )
     assert resp.status_code == 200
     assert resp.json()["status"] == "registered"
 
@@ -61,12 +63,15 @@ def test_register(server_url):
 
 
 def test_post_message(server_url):
-    resp = httpx.post(f"{server_url}/message", json={
-        "source": "test-bot",
-        "chat_id": "msg-1",
-        "sender": "tester",
-        "content": "Hello",
-    })
+    resp = httpx.post(
+        f"{server_url}/message",
+        json={
+            "source": "test-bot",
+            "chat_id": "msg-1",
+            "sender": "tester",
+            "content": "Hello",
+        },
+    )
     assert resp.status_code == 200
     assert resp.json()["status"] == "queued"
 

@@ -36,8 +36,14 @@ EMOJI_MAP = {
 }
 
 
+_MAX_EMOJI_LEN = 2
+
+
 def _resolve_emoji(name: str) -> str | None:
-    return EMOJI_MAP.get(name, name if len(name) <= 2 else None)
+    return EMOJI_MAP.get(name, name if len(name) <= _MAX_EMOJI_LEN else None)
+
+
+DISCORD_MSG_LIMIT = 2000
 
 
 async def send_discord_message_impl(
@@ -46,6 +52,7 @@ async def send_discord_message_impl(
     text: str = "",
     embed: dict[str, Any] | None = None,
 ) -> dict[str, str]:
+    """Send a message to a Discord channel."""
     channel = client.get_channel(int(channel_id))
     if channel is None:
         try:
@@ -55,10 +62,10 @@ async def send_discord_message_impl(
 
     discord_embed = build_embed(embed)
 
-    if text and len(text) > 2000:
-        for i in range(0, len(text), 2000):
-            chunk = text[i:i + 2000]
-            chunk_embed = discord_embed if i + 2000 >= len(text) else None
+    if text and len(text) > DISCORD_MSG_LIMIT:
+        for i in range(0, len(text), DISCORD_MSG_LIMIT):
+            chunk = text[i : i + DISCORD_MSG_LIMIT]
+            chunk_embed = discord_embed if i + DISCORD_MSG_LIMIT >= len(text) else None
             await channel.send(chunk, embed=chunk_embed)
     elif text:
         await channel.send(text, embed=discord_embed)
@@ -76,6 +83,7 @@ async def add_reaction_impl(
     message_id: str,
     emoji: str,
 ) -> dict[str, str]:
+    """Add a reaction to a Discord message."""
     channel = client.get_channel(int(channel_id))
     if channel is None:
         try:
@@ -100,6 +108,7 @@ async def send_typing_impl(
     client: discord.Client,
     channel_id: str,
 ) -> dict[str, str]:
+    """Show typing indicator in a Discord channel."""
     channel = client.get_channel(int(channel_id))
     if channel is None:
         try:
@@ -115,20 +124,23 @@ async def list_channels_impl(
     client: discord.Client,
     guild_id: str | None = None,
 ) -> list[dict[str, Any]]:
+    """List all text and forum channels the bot can see."""
     channels = []
     for guild in client.guilds:
         if guild_id and str(guild.id) != guild_id:
             continue
-        for channel in guild.channels:
-            if isinstance(channel, (discord.TextChannel, discord.ForumChannel)):
-                channels.append({
-                    "id": str(channel.id),
-                    "name": channel.name,
-                    "type": str(channel.type),
-                    "topic": getattr(channel, "topic", None) or "",
-                    "guild_id": str(guild.id),
-                    "guild_name": guild.name,
-                })
+        channels.extend(
+            {
+                "id": str(channel.id),
+                "name": channel.name,
+                "type": str(channel.type),
+                "topic": getattr(channel, "topic", None) or "",
+                "guild_id": str(guild.id),
+                "guild_name": guild.name,
+            }
+            for channel in guild.channels
+            if isinstance(channel, (discord.TextChannel, discord.ForumChannel))
+        )
     return channels
 
 
@@ -137,6 +149,7 @@ async def get_recent_messages_impl(
     channel_id: str,
     limit: int = 10,
 ) -> list[dict[str, Any]]:
+    """Fetch recent messages from a Discord channel."""
     limit = min(limit, 50)
     channel = client.get_channel(int(channel_id))
     if channel is None:
@@ -145,21 +158,22 @@ async def get_recent_messages_impl(
         except Exception:
             return []
 
-    messages = []
-    async for msg in channel.history(limit=limit):
-        messages.append({
+    return [
+        {
             "id": str(msg.id),
             "author": msg.author.display_name,
             "content": msg.content,
             "timestamp": msg.created_at.isoformat(),
-        })
-    return messages
+        }
+        async for msg in channel.history(limit=limit)
+    ]
 
 
 async def get_channel_info_impl(
     client: discord.Client,
     channel_id: str,
 ) -> dict[str, Any]:
+    """Get detailed information about a Discord channel."""
     channel = client.get_channel(int(channel_id))
     if channel is None:
         try:

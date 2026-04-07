@@ -1,16 +1,10 @@
 """Tests for pepper.attachments — download, storage, and cleanup."""
 
-import os
 from datetime import datetime, timedelta
-from pathlib import Path
-from unittest.mock import patch
 
 from pepper.attachments import (
     cleanup_attachments,
-    get_attachments_dir,
     get_today_dir,
-    MAX_AGE_DAYS,
-    MAX_TOTAL_BYTES,
 )
 
 
@@ -84,7 +78,9 @@ def test_cleanup_empty_dir(tmp_path, monkeypatch):
 
 
 def test_cleanup_nonexistent_dir(tmp_path, monkeypatch):
-    monkeypatch.setattr("pepper.attachments.get_attachments_dir", lambda: tmp_path / "nope")
+    monkeypatch.setattr(
+        "pepper.attachments.get_attachments_dir", lambda: tmp_path / "nope"
+    )
     stats = cleanup_attachments()
     assert stats["deleted_age"] == 0
     assert stats["deleted_size"] == 0

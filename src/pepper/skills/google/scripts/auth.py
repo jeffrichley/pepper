@@ -6,7 +6,6 @@ and automatic token refresh.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -82,8 +81,13 @@ def login() -> Credentials:
     """
     client_secret = get_client_secret_path()
     if not client_secret.exists():
-        print(f"Error: client_secret.json not found at {client_secret}", file=sys.stderr)
-        print("Copy your Google Cloud OAuth2 credentials to that location.", file=sys.stderr)
+        print(
+            f"Error: client_secret.json not found at {client_secret}", file=sys.stderr
+        )
+        print(
+            "Copy your Google Cloud OAuth2 credentials to that location.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     flow = InstalledAppFlow.from_client_secrets_file(str(client_secret), SCOPES)
@@ -106,7 +110,10 @@ def auth_status() -> dict:
     """Check authentication status."""
     token_path = get_token_path()
     if not token_path.exists():
-        return {"status": "not_configured", "message": "No token found. Run: pg auth login"}
+        return {
+            "status": "not_configured",
+            "message": "No token found. Run: pg auth login",
+        }
 
     try:
         creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
@@ -123,7 +130,10 @@ def auth_status() -> dict:
                 "message": "Token refreshed",
             }
         except Exception as e:
-            return {"status": "expired", "message": f"Token expired and refresh failed: {e}"}
+            return {
+                "status": "expired",
+                "message": f"Token expired and refresh failed: {e}",
+            }
 
     if creds.valid:
         return {

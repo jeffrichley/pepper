@@ -3,11 +3,19 @@
 import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src" / "pepper" / "skills" / "google" / "scripts"))
+sys.path.insert(
+    0,
+    str(
+        Path(__file__).parent.parent.parent
+        / "src"
+        / "pepper"
+        / "skills"
+        / "google"
+        / "scripts"
+    ),
+)
 
 
 def test_get_credentials_dir():
@@ -44,14 +52,16 @@ def test_save_and_load_credentials(tmp_path, monkeypatch):
     monkeypatch.setenv("PG_TOKEN_PATH", str(token_path))
 
     mock_creds = MagicMock()
-    mock_creds.to_json.return_value = json.dumps({
-        "token": "access_123",
-        "refresh_token": "refresh_456",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "client_id": "test_id",
-        "client_secret": "test_secret",
-        "scopes": ["https://www.googleapis.com/auth/calendar.readonly"],
-    })
+    mock_creds.to_json.return_value = json.dumps(
+        {
+            "token": "access_123",
+            "refresh_token": "refresh_456",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "test_id",
+            "client_secret": "test_secret",
+            "scopes": ["https://www.googleapis.com/auth/calendar.readonly"],
+        }
+    )
 
     from auth import save_credentials
 

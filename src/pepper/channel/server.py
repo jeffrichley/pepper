@@ -10,17 +10,18 @@ notifications via the experimental 'claude/channel' capability.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
 import sys
-import time
 import threading
-from datetime import datetime, timezone
+import time
+from datetime import UTC, datetime
 from typing import Any
 
-import mcp.types as types
-from mcp.server.lowlevel.server import Server, NotificationOptions, request_ctx
+from mcp import types
+from mcp.server.lowlevel.server import NotificationOptions, Server
 from mcp.server.stdio import stdio_server
 
 from pepper.channel.router import Router
@@ -42,15 +43,11 @@ def emit_to_source(source: str, data: dict) -> None:
 
     with _sse_lock:
         for q in _source_listeners.get(source, set()):
-            try:
+            with contextlib.suppress(Exception):
                 q.put_nowait(chunk)
-            except Exception:
-                pass
         for q in _global_listeners:
-            try:
+            with contextlib.suppress(Exception):
                 q.put_nowait(chunk)
-            except Exception:
-                pass
 
 
 def _add_sse_listener(source: str | None) -> asyncio.Queue:
@@ -97,10 +94,10 @@ def _enqueue_notification(content: str, meta: dict[str, str]) -> None:
 _start_time = time.monotonic()
 
 
-def create_http_app(router: Router):
+def create_http_app(router: Router):  # noqa: PLR0915
     """Create an ASGI app with channel HTTP endpoints."""
 
-    async def app(scope, receive, send):
+    async def app(scope, receive, send):  # noqa: PLR0911, PLR0912, PLR0915
         if scope["type"] != "http":
             return
 
@@ -117,22 +114,46 @@ def create_http_app(router: Router):
 
             q = _add_sse_listener(source)
             try:
-                await send({"type": "http.response.start", "status": 200, "headers": [
-                    [b"content-type", b"text/event-stream"],
-                    [b"cache-control", b"no-cache"],
-                    [b"connection", b"keep-alive"],
-                ]})
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": 200,
+                        "headers": [
+                            [b"content-type", b"text/event-stream"],
+                            [b"cache-control", b"no-cache"],
+                            [b"connection", b"keep-alive"],
+                        ],
+                    }
+                )
                 # Send initial connected comment
-                await send({"type": "http.response.body", "body": b": connected\n\n", "more_body": True})
+                await send(
+                    {
+                        "type": "http.response.body",
+                        "body": b": connected\n\n",
+                        "more_body": True,
+                    }
+                )
 
                 # Stream events from the queue
                 while True:
                     try:
                         chunk = await asyncio.wait_for(q.get(), timeout=30.0)
-                        await send({"type": "http.response.body", "body": chunk.encode(), "more_body": True})
-                    except asyncio.TimeoutError:
+                        await send(
+                            {
+                                "type": "http.response.body",
+                                "body": chunk.encode(),
+                                "more_body": True,
+                            }
+                        )
+                    except TimeoutError:
                         # Send keepalive comment
-                        await send({"type": "http.response.body", "body": b": keepalive\n\n", "more_body": True})
+                        await send(
+                            {
+                                "type": "http.response.body",
+                                "body": b": keepalive\n\n",
+                                "more_body": True,
+                            }
+                        )
                     except Exception:
                         break
             finally:
@@ -141,15 +162,23 @@ def create_http_app(router: Router):
 
         if method == "GET" and path == "/health":
             router.clean_expired()
-            body = json.dumps({
-                "status": "ok",
-                "registered_sources": router.registered_sources,
-                "routing_table_size": router.size,
-                "uptime_seconds": int(time.monotonic() - _start_time),
-            }).encode()
-            await send({"type": "http.response.start", "status": 200, "headers": [
-                [b"content-type", b"application/json"],
-            ]})
+            body = json.dumps(
+                {
+                    "status": "ok",
+                    "registered_sources": router.registered_sources,
+                    "routing_table_size": router.size,
+                    "uptime_seconds": int(time.monotonic() - _start_time),
+                }
+            ).encode()
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [
+                        [b"content-type", b"application/json"],
+                    ],
+                }
+            )
             await send({"type": "http.response.body", "body": body})
             return
 
@@ -159,8 +188,15 @@ def create_http_app(router: Router):
             if not data.get("source"):
                 await _json_response(send, 400, {"error": "source is required"})
                 return
-            router.register_source(data["source"], data.get("description", ""))
-            await _json_response(send, 200, {"status": "registered", "source": data["source"]})
+            router.register_source(
+                data["source"],
+                data.get("description", ""),
+            )
+            await _json_response(
+                send,
+                200,
+                {"status": "registered", "source": data["source"]},
+            )
             return
 
         if method == "POST" and path == "/message":
@@ -170,7 +206,11 @@ def create_http_app(router: Router):
             chat_id = data.get("chat_id")
             content = data.get("content")
             if not source or not chat_id or not content:
-                await _json_response(send, 400, {"error": "source, chat_id, and content are required"})
+                await _json_response(
+                    send,
+                    400,
+                    {"error": "source, chat_id, and content are required"},
+                )
                 return
 
             router.add(chat_id, source)
@@ -186,8 +226,15 @@ def create_http_app(router: Router):
             # Notify Claude Code via MCP notification bridge
             _enqueue_notification(content, meta)
 
-            emit_to_source(source, {"chat_id": chat_id, "content": content, "meta": meta})
-            await _json_response(send, 200, {"status": "queued", "chat_id": chat_id})
+            emit_to_source(
+                source,
+                {"chat_id": chat_id, "content": content, "meta": meta},
+            )
+            await _json_response(
+                send,
+                200,
+                {"status": "queued", "chat_id": chat_id},
+            )
             return
 
         await _json_response(send, 404, {"error": "not found"})
@@ -207,27 +254,36 @@ async def _read_body(receive) -> bytes:
 
 async def _json_response(send, status: int, data: dict) -> None:
     body = json.dumps(data).encode()
-    await send({"type": "http.response.start", "status": status, "headers": [
-        [b"content-type", b"application/json"],
-    ]})
+    await send(
+        {
+            "type": "http.response.start",
+            "status": status,
+            "headers": [
+                [b"content-type", b"application/json"],
+            ],
+        }
+    )
     await send({"type": "http.response.body", "body": body})
 
 
 # --- MCP Server (low-level API) ---
 
-def create_mcp_server(router: Router) -> Server:
-    """Create the low-level MCP server with reply tool and channel notification support."""
 
+def create_mcp_server(router: Router) -> Server:
+    """Create the low-level MCP server with reply tool and notifications."""
     server = Server(
         name="pepper-channel",
         version="2.0.0",
         instructions=(
-            'Messages arrive as notifications with method "notifications/claude/channel". '
+            "Messages arrive as notifications with method "
+            '"notifications/claude/channel". '
             'The notification params contain "content" (the message text) and "meta" '
-            '(with chat_id, sender, integration, and other metadata). '
-            "Reply with the reply tool, passing the chat_id from the notification meta. "
+            "(with chat_id, sender, integration, and other metadata). "
+            "Reply with the reply tool, passing the chat_id"
+            " from the notification meta. "
             "You can include metadata in your reply: reactions (array of emoji names), "
-            'type ("message" or "reaction" for reaction-only), and embed (object with title, description, color, fields). '
+            'type ("message" or "reaction" for reaction-only), '
+            "and embed (object with title, description, color, fields). "
             "Treat each message as a task or conversation to handle."
         ),
     )
@@ -237,13 +293,19 @@ def create_mcp_server(router: Router) -> Server:
         return [
             types.Tool(
                 name="reply",
-                description="Send a reply back through the channel to the integration that sent the message",
+                description=(
+                    "Send a reply back through the channel"
+                    " to the integration that sent the message"
+                ),
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "chat_id": {
                             "type": "string",
-                            "description": "The conversation to reply in (from the channel notification meta)",
+                            "description": (
+                                "The conversation to reply in"
+                                " (from the channel notification meta)"
+                            ),
                         },
                         "text": {
                             "type": "string",
@@ -251,7 +313,12 @@ def create_mcp_server(router: Router) -> Server:
                         },
                         "metadata": {
                             "type": "object",
-                            "description": 'Optional: reactions (emoji array), type ("message"|"reaction"), embed (object with title/description/color/fields)',
+                            "description": (
+                                "Optional: reactions (emoji array),"
+                                ' type ("message"|"reaction"),'
+                                " embed (object with"
+                                " title/description/color/fields)"
+                            ),
                             "properties": {
                                 "reactions": {
                                     "type": "array",
@@ -261,11 +328,18 @@ def create_mcp_server(router: Router) -> Server:
                                 "type": {
                                     "type": "string",
                                     "enum": ["message", "reaction"],
-                                    "description": "Reply type: message (default) or reaction-only",
+                                    "description": (
+                                        "Reply type: message (default) or reaction-only"
+                                    ),
                                 },
                                 "embed": {
                                     "type": "object",
-                                    "description": "Rich embed with title, description, color (int), fields (array of {name, value, inline})",
+                                    "description": (
+                                        "Rich embed with title,"
+                                        " description, color (int),"
+                                        " fields (array of"
+                                        " {name, value, inline})"
+                                    ),
                                 },
                             },
                         },
@@ -294,7 +368,7 @@ def create_mcp_server(router: Router) -> Server:
             "text": text,
             "metadata": metadata,
             "source": source,
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
         }
         emit_to_source(source, reply_data)
 
@@ -303,20 +377,20 @@ def create_mcp_server(router: Router) -> Server:
     return server
 
 
-async def _notification_pump(server: Server, read_stream, write_stream) -> None:
+async def _notification_pump(server: Server, read_stream, write_stream) -> None:  # noqa: ARG001
     """Drain the notification queue and send MCP notifications to Claude Code.
 
     This runs on the MCP event loop and sends custom notifications
     that were enqueued by the HTTP thread.
     """
-    global _notification_queue
+    global _notification_queue  # noqa: PLW0603
     _notification_queue = asyncio.Queue()
 
     # We need the session to send notifications, but the session is created
     # inside server.run(). Instead, we'll send raw JSON-RPC notifications
     # directly to the write stream.
-    from mcp.shared.session import SessionMessage
-    from mcp.types import JSONRPCNotification
+    from mcp.shared.session import SessionMessage  # noqa: PLC0415
+    from mcp.types import JSONRPCNotification  # noqa: PLC0415
 
     while True:
         item = await _notification_queue.get()
@@ -329,15 +403,14 @@ async def _notification_pump(server: Server, read_stream, write_stream) -> None:
             )
             message = SessionMessage(message=notification)
             await write_stream.send(message)
-            log.debug(f"Sent channel notification: {item.get('meta', {}).get('chat_id', 'unknown')}")
+            chat_id = item.get("meta", {}).get("chat_id", "unknown")
+            log.debug(f"Sent channel notification: {chat_id}")
         except Exception as e:
             log.error(f"Failed to send notification: {e}")
 
 
 def main() -> None:
     """Entry point for pepper-channel. Runs MCP over stdio + HTTP server."""
-    global _mcp_loop
-
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -352,17 +425,26 @@ def main() -> None:
     http_app = create_http_app(router)
 
     async def run():
-        global _mcp_loop
+        global _mcp_loop  # noqa: PLW0603
         _mcp_loop = asyncio.get_running_loop()
 
         # Start HTTP server in a background thread
-        import uvicorn
-        config = uvicorn.Config(http_app, host="127.0.0.1", port=port, log_level="warning")
+        import uvicorn  # noqa: PLC0415
+
+        config = uvicorn.Config(
+            http_app,
+            host="127.0.0.1",
+            port=port,
+            log_level="warning",
+        )
         http_server = uvicorn.Server(config)
         http_thread = threading.Thread(target=http_server.run, daemon=True)
         http_thread.start()
 
-        log.info(f"Pepper channel server v2.0.0 (Python) listening on http://127.0.0.1:{port}")
+        log.info(
+            "Pepper channel server v2.0.0 (Python)"
+            f" listening on http://127.0.0.1:{port}",
+        )
 
         async with stdio_server() as (read_stream, write_stream):
             init_options = server.create_initialization_options(

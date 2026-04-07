@@ -8,12 +8,9 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
-from typing import Optional
-
-import typer
-from rich.console import Console
 from zoneinfo import ZoneInfo
 
+import typer
 from auth import auth_status, get_credentials, login
 from gcal import (
     create_event,
@@ -22,6 +19,7 @@ from gcal import (
     list_calendars,
     list_events,
 )
+from rich.console import Console
 
 app = typer.Typer(help="Pepper Google Workspace CLI")
 auth_app = typer.Typer(help="Authentication commands")
@@ -93,10 +91,12 @@ def auth_status_cmd(
 @cal_app.command("events")
 def cal_events_cmd(
     today: bool = typer.Option(False, "--today", help="Today's events"),
-    date: Optional[str] = typer.Option(None, "--date", help="Events for a specific date (YYYY-MM-DD)"),
+    date: str | None = typer.Option(
+        None, "--date", help="Events for a specific date (YYYY-MM-DD)"
+    ),
     week: bool = typer.Option(False, "--week", help="This week's events"),
-    start: Optional[str] = typer.Option(None, "--start", help="Start date (YYYY-MM-DD)"),
-    end: Optional[str] = typer.Option(None, "--end", help="End date (YYYY-MM-DD)"),
+    start: str | None = typer.Option(None, "--start", help="Start date (YYYY-MM-DD)"),
+    end: str | None = typer.Option(None, "--end", help="End date (YYYY-MM-DD)"),
     calendar_id: str = typer.Option("primary", "--calendar", help="Calendar ID"),
     max_results: int = typer.Option(50, "--max", help="Max events"),
     json_output: bool = typer.Option(False, "--json", help="JSON output"),
@@ -119,9 +119,11 @@ def cal_events_cmd(
 @cal_app.command("freebusy")
 def cal_freebusy_cmd(
     today: bool = typer.Option(False, "--today", help="Today's free/busy"),
-    date: Optional[str] = typer.Option(None, "--date", help="Date (YYYY-MM-DD) or 'tomorrow'"),
-    start: Optional[str] = typer.Option(None, "--start", help="Start date (YYYY-MM-DD)"),
-    end: Optional[str] = typer.Option(None, "--end", help="End date (YYYY-MM-DD)"),
+    date: str | None = typer.Option(
+        None, "--date", help="Date (YYYY-MM-DD) or 'tomorrow'"
+    ),
+    start: str | None = typer.Option(None, "--start", help="Start date (YYYY-MM-DD)"),
+    end: str | None = typer.Option(None, "--end", help="End date (YYYY-MM-DD)"),
     calendar_id: str = typer.Option("primary", "--calendar", help="Calendar ID"),
     json_output: bool = typer.Option(False, "--json", help="JSON output"),
 ):
@@ -146,13 +148,21 @@ def cal_freebusy_cmd(
 @cal_app.command("create")
 def cal_create_cmd(
     summary: str = typer.Argument(help="Event title"),
-    start: str = typer.Option(..., "--start", help="Start time (YYYY-MM-DD HH:MM or RFC3339)"),
-    end: Optional[str] = typer.Option(None, "--end", help="End time"),
-    duration: Optional[int] = typer.Option(None, "--duration", help="Duration in minutes (alternative to --end)"),
-    date: Optional[str] = typer.Option(None, "--date", help="All-day event date (YYYY-MM-DD)"),
+    start: str = typer.Option(
+        ..., "--start", help="Start time (YYYY-MM-DD HH:MM or RFC3339)"
+    ),
+    end: str | None = typer.Option(None, "--end", help="End time"),
+    duration: int | None = typer.Option(
+        None, "--duration", help="Duration in minutes (alternative to --end)"
+    ),
+    date: str | None = typer.Option(
+        None, "--date", help="All-day event date (YYYY-MM-DD)"
+    ),
     location: str = typer.Option("", "--location", help="Location"),
     description: str = typer.Option("", "--description", help="Description"),
-    attendees: Optional[str] = typer.Option(None, "--attendees", help="Comma-separated emails"),
+    attendees: str | None = typer.Option(
+        None, "--attendees", help="Comma-separated emails"
+    ),
     calendar_id: str = typer.Option("primary", "--calendar", help="Calendar ID"),
     json_output: bool = typer.Option(False, "--json", help="JSON output"),
 ):
@@ -184,7 +194,11 @@ def cal_create_cmd(
         # Compute end time
         if end:
             if "T" not in end:
-                end_rfc = datetime.strptime(end, "%Y-%m-%d %H:%M").replace(tzinfo=tz).isoformat()
+                end_rfc = (
+                    datetime.strptime(end, "%Y-%m-%d %H:%M")
+                    .replace(tzinfo=tz)
+                    .isoformat()
+                )
             else:
                 end_rfc = end
         elif duration:

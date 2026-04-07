@@ -6,7 +6,17 @@ from unittest.mock import MagicMock
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src" / "pepper" / "skills" / "google" / "scripts"))
+sys.path.insert(
+    0,
+    str(
+        Path(__file__).parent.parent.parent
+        / "src"
+        / "pepper"
+        / "skills"
+        / "google"
+        / "scripts"
+    ),
+)
 
 
 @pytest.fixture
@@ -40,13 +50,21 @@ def mock_service():
         "calendars": {
             "primary": {
                 "busy": [
-                    {"start": "2026-04-07T09:00:00-04:00", "end": "2026-04-07T09:30:00-04:00"},
-                    {"start": "2026-04-07T14:00:00-04:00", "end": "2026-04-07T15:00:00-04:00"},
+                    {
+                        "start": "2026-04-07T09:00:00-04:00",
+                        "end": "2026-04-07T09:30:00-04:00",
+                    },
+                    {
+                        "start": "2026-04-07T14:00:00-04:00",
+                        "end": "2026-04-07T15:00:00-04:00",
+                    },
                 ]
             }
         }
     }
-    service.freebusy.return_value.query.return_value.execute.return_value = freebusy_response
+    service.freebusy.return_value.query.return_value.execute.return_value = (
+        freebusy_response
+    )
 
     service.events.return_value.insert.return_value.execute.return_value = {
         "id": "new_event",
@@ -56,8 +74,18 @@ def mock_service():
 
     service.calendarList.return_value.list.return_value.execute.return_value = {
         "items": [
-            {"id": "primary", "summary": "Jeff Richley", "primary": True, "accessRole": "owner"},
-            {"id": "work@example.com", "summary": "Work", "primary": False, "accessRole": "owner"},
+            {
+                "id": "primary",
+                "summary": "Jeff Richley",
+                "primary": True,
+                "accessRole": "owner",
+            },
+            {
+                "id": "work@example.com",
+                "summary": "Work",
+                "primary": False,
+                "accessRole": "owner",
+            },
         ]
     }
 

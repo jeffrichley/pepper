@@ -6,12 +6,9 @@ import json
 import os
 import pathlib
 import socket
-import tempfile
-from pathlib import Path
 from typing import Any
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Auto marker injection based on test directory
@@ -68,7 +65,9 @@ def _guarded_create_connection(
 
 
 @pytest.fixture(autouse=True)
-def _network_guard(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+def _network_guard(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Block outbound network in unit tests. Integration and e2e tests bypass this."""
     markers = {m.name for m in request.node.iter_markers()}
     if markers & {"integration", "e2e"}:
@@ -102,22 +101,34 @@ def temp_vault(tmp_path):
     vault = tmp_path / "Memory"
     vault.mkdir()
 
-    (vault / "IDENTITY.md").write_text("# Identity\n\n**Name:** TestBot\n**Emoji:** 🤖\n**Role:** Test Agent\n**Created by:** Test\n")
-    (vault / "SOUL.md").write_text("# Soul\n\n## Personality\nTest personality.\n\n## Behavioral Rules\nBe helpful.\n")
-    (vault / "USER.md").write_text("# User Profile\n\n## About\n- **Name:** Tester\n- **Timezone:** UTC\n")
+    (vault / "IDENTITY.md").write_text(
+        "# Identity\n\n**Name:** TestBot\n**Emoji:** 🤖\n**Role:** Test Agent\n**Created by:** Test\n"
+    )
+    (vault / "SOUL.md").write_text(
+        "# Soul\n\n## Personality\nTest personality.\n\n## Behavioral Rules\nBe helpful.\n"
+    )
+    (vault / "USER.md").write_text(
+        "# User Profile\n\n## About\n- **Name:** Tester\n- **Timezone:** UTC\n"
+    )
     (vault / "MEMORY.md").write_text("# Memory\n\n## Active Projects\n- Test project\n")
-    (vault / "OPERATIONS.md").write_text("# Operations\n\n## Vault\n- **Location:** Memory/\n")
+    (vault / "OPERATIONS.md").write_text(
+        "# Operations\n\n## Vault\n- **Location:** Memory/\n"
+    )
 
     summaries = vault / "daily" / "summaries"
     summaries.mkdir(parents=True)
-    (summaries / "2026-04-04.md").write_text("# 2026-04-04 Summary\n\n## Key Accomplishments\n- Set up test vault\n")
+    (summaries / "2026-04-04.md").write_text(
+        "# 2026-04-04 Summary\n\n## Key Accomplishments\n- Set up test vault\n"
+    )
 
     raw = vault / "daily" / "raw"
     raw.mkdir(parents=True)
 
     weekly = vault / "weekly"
     weekly.mkdir()
-    (weekly / "2026-W14.md").write_text("# Week 14 Summary\n\n## Highlights\n- Testing week\n")
+    (weekly / "2026-W14.md").write_text(
+        "# Week 14 Summary\n\n## Highlights\n- Testing week\n"
+    )
 
     return vault
 
@@ -125,7 +136,10 @@ def temp_vault(tmp_path):
 @pytest.fixture
 def mock_stdin_data():
     """Create mock stdin JSON data for hooks."""
-    def _make(session_id="test-session-123", transcript_path=None, hook_event="SessionStart"):
+
+    def _make(
+        session_id="test-session-123", transcript_path=None, hook_event="SessionStart"
+    ):
         data = {
             "session_id": session_id,
             "transcript_path": transcript_path or "",
@@ -133,6 +147,7 @@ def mock_stdin_data():
             "hook_event_name": hook_event,
         }
         return json.dumps(data)
+
     return _make
 
 

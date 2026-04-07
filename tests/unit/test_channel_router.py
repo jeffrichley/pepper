@@ -1,7 +1,5 @@
 """Tests for pepper.channel.router — routing table logic."""
 
-import time
-
 from pepper.channel.router import Router
 
 

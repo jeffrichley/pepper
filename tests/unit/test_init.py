@@ -1,13 +1,12 @@
 """Tests for pepper init — runtime workspace generation."""
 
 import json
-from pathlib import Path
 
 from pepper.init.generator import generate_runtime
 
 
 def test_generate_creates_directory_structure(tmp_path):
-    """pepper init creates the expected directory structure."""
+    """Pepper init creates the expected directory structure."""
     runtime = tmp_path / ".pepper"
     generate_runtime(runtime_path=runtime)
 
@@ -20,7 +19,7 @@ def test_generate_creates_directory_structure(tmp_path):
 
 
 def test_generate_creates_vault_scaffold(tmp_path):
-    """pepper init creates empty Tier 1 files and directory structure."""
+    """Pepper init creates empty Tier 1 files and directory structure."""
     runtime = tmp_path / ".pepper"
     generate_runtime(runtime_path=runtime)
 
@@ -56,7 +55,7 @@ def test_generate_mcp_has_channel(tmp_path):
 
 
 def test_generate_does_not_overwrite_existing_vault(tmp_path):
-    """pepper init preserves existing vault files."""
+    """Pepper init preserves existing vault files."""
     runtime = tmp_path / ".pepper"
     vault = runtime / "Memory"
     vault.mkdir(parents=True)
@@ -68,7 +67,7 @@ def test_generate_does_not_overwrite_existing_vault(tmp_path):
 
 
 def test_generate_overwrites_config_files(tmp_path):
-    """pepper init regenerates config files even if they exist."""
+    """Pepper init regenerates config files even if they exist."""
     runtime = tmp_path / ".pepper"
     runtime.mkdir(parents=True)
     (runtime / "CLAUDE.md").write_text("old content")
@@ -79,7 +78,7 @@ def test_generate_overwrites_config_files(tmp_path):
 
 
 def test_migrate_copies_vault_contents(tmp_path):
-    """pepper init --migrate copies existing vault to runtime."""
+    """Pepper init --migrate copies existing vault to runtime."""
     source_vault = tmp_path / "repo" / "Memory"
     source_vault.mkdir(parents=True)
     (source_vault / "IDENTITY.md").write_text("# My Real Identity")
@@ -91,11 +90,13 @@ def test_migrate_copies_vault_contents(tmp_path):
     generate_runtime(runtime_path=runtime, migrate_from=source_vault)
 
     assert (runtime / "Memory" / "IDENTITY.md").read_text() == "# My Real Identity"
-    assert (runtime / "Memory" / "daily" / "raw" / "2026-04-06.md").read_text() == "# Today's log"
+    assert (
+        runtime / "Memory" / "daily" / "raw" / "2026-04-06.md"
+    ).read_text() == "# Today's log"
 
 
 def test_generate_installs_skills(tmp_path):
-    """pepper init copies skills into runtime .claude/skills/."""
+    """Pepper init copies skills into runtime .claude/skills/."""
     runtime = tmp_path / ".pepper"
     generate_runtime(runtime_path=runtime)
 

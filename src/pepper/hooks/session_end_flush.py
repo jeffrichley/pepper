@@ -7,6 +7,8 @@ note-taking). The reflection job at 3 AM summarizes the day.
 Env override: PEPPER_VAULT_PATH (for testing)
 """
 
+import contextlib
+
 from pepper.hooks.shared import (
     read_stdin,
     write_stdout,
@@ -14,10 +16,9 @@ from pepper.hooks.shared import (
 
 
 def main():
-    try:
+    """Mark session end and acknowledge."""
+    with contextlib.suppress(Exception):
         read_stdin()
-    except Exception:
-        pass
 
     # Session is ending — nothing to inject, just acknowledge
     write_stdout({})

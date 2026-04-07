@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 from datetime import datetime, timedelta
 from typing import Any
-
 from zoneinfo import ZoneInfo
 
 TIMEZONE = os.environ.get("PG_TIMEZONE", "US/Eastern")
@@ -39,14 +38,18 @@ def list_events(
     time_min = _to_rfc3339(_parse_date(start_date))
     time_max = _to_rfc3339(_parse_date(end_date) + timedelta(days=1))
 
-    result = service.events().list(
-        calendarId=calendar_id,
-        timeMin=time_min,
-        timeMax=time_max,
-        singleEvents=True,
-        orderBy="startTime",
-        maxResults=max_results,
-    ).execute()
+    result = (
+        service.events()
+        .list(
+            calendarId=calendar_id,
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy="startTime",
+            maxResults=max_results,
+        )
+        .execute()
+    )
 
     events = []
     for item in result.get("items", []):
@@ -54,17 +57,19 @@ def list_events(
         end = item.get("end", {})
         is_all_day = "date" in start
 
-        events.append({
-            "id": item.get("id", ""),
-            "summary": item.get("summary", "(No title)"),
-            "start": start.get("date") if is_all_day else start.get("dateTime", ""),
-            "end": end.get("date") if is_all_day else end.get("dateTime", ""),
-            "all_day": is_all_day,
-            "location": item.get("location", ""),
-            "attendees": [a.get("email", "") for a in item.get("attendees", [])],
-            "status": item.get("status", ""),
-            "html_link": item.get("htmlLink", ""),
-        })
+        events.append(
+            {
+                "id": item.get("id", ""),
+                "summary": item.get("summary", "(No title)"),
+                "start": start.get("date") if is_all_day else start.get("dateTime", ""),
+                "end": end.get("date") if is_all_day else end.get("dateTime", ""),
+                "all_day": is_all_day,
+                "location": item.get("location", ""),
+                "attendees": [a.get("email", "") for a in item.get("attendees", [])],
+                "status": item.get("status", ""),
+                "html_link": item.get("htmlLink", ""),
+            }
+        )
 
     return events
 
@@ -79,11 +84,17 @@ def get_freebusy(
     time_min = _to_rfc3339(_parse_date(start_date))
     time_max = _to_rfc3339(_parse_date(end_date) + timedelta(days=1))
 
-    result = service.freebusy().query(body={
-        "timeMin": time_min,
-        "timeMax": time_max,
-        "items": [{"id": calendar_id}],
-    }).execute()
+    result = (
+        service.freebusy()
+        .query(
+            body={
+                "timeMin": time_min,
+                "timeMax": time_max,
+                "items": [{"id": calendar_id}],
+            }
+        )
+        .execute()
+    )
 
     busy = result.get("calendars", {}).get(calendar_id, {}).get("busy", [])
     free = compute_free_slots(busy, start_date, WORKING_START, WORKING_END, TIMEZONE)
@@ -180,12 +191,12 @@ def delete_event(
 def list_calendars(service) -> list[dict[str, Any]]:
     """List all calendars the user has access to."""
     result = service.calendarList().list(maxResults=100).execute()
-    calendars = []
-    for item in result.get("items", []):
-        calendars.append({
+    return [
+        {
             "id": item.get("id", ""),
             "summary": item.get("summary", ""),
             "primary": item.get("primary", False),
             "access_role": item.get("accessRole", ""),
-        })
-    return calendars
+        }
+        for item in result.get("items", [])
+    ]

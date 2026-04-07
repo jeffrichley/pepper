@@ -13,7 +13,7 @@ VAULT = Path(__file__).parent.parent.parent / "Memory"
 
 @pytest.mark.slow
 def test_qmd_index_completes():
-    """qmd index vault should complete without error."""
+    """Qmd index vault should complete without error."""
     result = subprocess.run(
         ["uv", "run", "qmd", "index", "vault"],
         capture_output=True,
@@ -58,7 +58,15 @@ def test_qmd_search_new_file():
         )
 
         result = subprocess.run(
-            ["uv", "run", "qmd", "search", "quantum entanglement robotics", "-c", "vault"],
+            [
+                "uv",
+                "run",
+                "qmd",
+                "search",
+                "quantum entanglement robotics",
+                "-c",
+                "vault",
+            ],
             capture_output=True,
             text=True,
             cwd=str(VAULT.parent),

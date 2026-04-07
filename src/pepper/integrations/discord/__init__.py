@@ -1,0 +1,1 @@
+"""Pepper Discord integration."""
