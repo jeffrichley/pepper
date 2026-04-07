@@ -1,6 +1,9 @@
 """Pepper CLI — manage your Second Brain runtime."""
 
+from pathlib import Path
+
 import typer
+from rich import print as rprint
 
 app = typer.Typer(
     name="pepper",
@@ -14,7 +17,20 @@ def init(
     migrate: bool = typer.Option(False, help="Migrate existing Memory/ vault from the repo"),
 ) -> None:
     """Initialize the Pepper runtime workspace at ~/.pepper/."""
-    typer.echo("pepper init — not yet implemented")
+    from pepper.init.generator import generate_runtime
+
+    runtime_path = Path.home() / ".pepper"
+
+    if runtime_path.exists() and not migrate:
+        rprint("[yellow]~/.pepper/ already exists.[/yellow] Config files will be regenerated.")
+        rprint("Vault files will NOT be overwritten.")
+
+    result = generate_runtime(runtime_path=runtime_path)
+
+    rprint(f"[green]Pepper runtime initialized at {result}[/green]")
+    rprint("\nTo start Pepper:")
+    rprint(f"  cd {result}")
+    rprint("  claude")
 
 
 @app.command()
