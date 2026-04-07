@@ -1,4 +1,4 @@
-"""Pepper Channel Server — Python MCP + HTTP message router.
+"""Pepper Channel Server -- Python MCP + HTTP message router.
 
 Low-level MCP server over stdio for Claude Code integration.
 HTTP server for external integrations (Discord, email, etc.).
@@ -17,6 +17,7 @@ import os
 import sys
 import threading
 import time
+from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
 from typing import Any
 
@@ -28,15 +29,21 @@ from pepper.channel.router import Router
 
 log = logging.getLogger("pepper-channel")
 
+# ASGI type aliases
+ASGIReceive = Callable[[], Coroutine[Any, Any, dict[str, Any]]]
+ASGISend = Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+ASGIScope = dict[str, Any]
+ASGIApp = Callable[[ASGIScope, ASGIReceive, ASGISend], Coroutine[Any, Any, None]]
+
 # --- SSE listener management ---
 # Each listener is an asyncio.Queue that receives SSE chunks.
 
-_source_listeners: dict[str, set[asyncio.Queue]] = {}
-_global_listeners: set[asyncio.Queue] = set()
+_source_listeners: dict[str, set[asyncio.Queue[str]]] = {}
+_global_listeners: set[asyncio.Queue[str]] = set()
 _sse_lock = threading.Lock()
 
 
-def emit_to_source(source: str, data: dict) -> None:
+def emit_to_source(source: str, data: dict[str, Any]) -> None:
     """Emit an event to source-specific and global SSE listeners (thread-safe)."""
     encoded = json.dumps(data)
     chunk = f"data: {encoded}\n\n"
@@ -50,9 +57,9 @@ def emit_to_source(source: str, data: dict) -> None:
                 q.put_nowait(chunk)
 
 
-def _add_sse_listener(source: str | None) -> asyncio.Queue:
+def _add_sse_listener(source: str | None) -> asyncio.Queue[str]:
     """Register an SSE listener queue. If source is None, listens to all."""
-    q: asyncio.Queue = asyncio.Queue()
+    q: asyncio.Queue[str] = asyncio.Queue()
     with _sse_lock:
         if source:
             if source not in _source_listeners:
@@ -63,7 +70,7 @@ def _add_sse_listener(source: str | None) -> asyncio.Queue:
     return q
 
 
-def _remove_sse_listener(source: str | None, q: asyncio.Queue) -> None:
+def _remove_sse_listener(source: str | None, q: asyncio.Queue[str]) -> None:
     """Unregister an SSE listener queue."""
     with _sse_lock:
         if source:
@@ -76,7 +83,7 @@ def _remove_sse_listener(source: str | None, q: asyncio.Queue) -> None:
 
 # --- Notification bridge (HTTP thread -> MCP event loop) ---
 
-_notification_queue: asyncio.Queue | None = None
+_notification_queue: asyncio.Queue[dict[str, Any]] | None = None
 _mcp_loop: asyncio.AbstractEventLoop | None = None
 
 
@@ -94,147 +101,170 @@ def _enqueue_notification(content: str, meta: dict[str, str]) -> None:
 _start_time = time.monotonic()
 
 
-def create_http_app(router: Router):  # noqa: PLR0915
-    """Create an ASGI app with channel HTTP endpoints."""
+async def _handle_health(
+    router: Router, send: ASGISend,
+) -> None:
+    """Handle GET /health."""
+    router.clean_expired()
+    body = json.dumps(
+        {
+            "status": "ok",
+            "registered_sources": router.registered_sources,
+            "routing_table_size": router.size,
+            "uptime_seconds": int(time.monotonic() - _start_time),
+        }
+    ).encode()
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [
+                [b"content-type", b"application/json"],
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": body})
 
-    async def app(scope, receive, send):  # noqa: PLR0911, PLR0912, PLR0915
-        if scope["type"] != "http":
-            return
 
-        method = scope["method"]
-        path = scope["path"]
+async def _handle_events(
+    scope: ASGIScope, send: ASGISend,
+) -> None:
+    """Handle GET /events (SSE endpoint)."""
+    query = scope.get("query_string", b"").decode()
+    source = None
+    for param in query.split("&"):
+        if param.startswith("source="):
+            source = param[7:]
 
-        if method == "GET" and path == "/events":
-            # SSE endpoint — long-lived connection that streams replies
-            query = scope.get("query_string", b"").decode()
-            source = None
-            for param in query.split("&"):
-                if param.startswith("source="):
-                    source = param[7:]
+    q = _add_sse_listener(source)
+    try:
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [
+                    [b"content-type", b"text/event-stream"],
+                    [b"cache-control", b"no-cache"],
+                    [b"connection", b"keep-alive"],
+                ],
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": b": connected\n\n",
+                "more_body": True,
+            }
+        )
 
-            q = _add_sse_listener(source)
+        while True:
             try:
-                await send(
-                    {
-                        "type": "http.response.start",
-                        "status": 200,
-                        "headers": [
-                            [b"content-type", b"text/event-stream"],
-                            [b"cache-control", b"no-cache"],
-                            [b"connection", b"keep-alive"],
-                        ],
-                    }
-                )
-                # Send initial connected comment
+                chunk = await asyncio.wait_for(q.get(), timeout=30.0)
                 await send(
                     {
                         "type": "http.response.body",
-                        "body": b": connected\n\n",
+                        "body": chunk.encode(),
                         "more_body": True,
                     }
                 )
-
-                # Stream events from the queue
-                while True:
-                    try:
-                        chunk = await asyncio.wait_for(q.get(), timeout=30.0)
-                        await send(
-                            {
-                                "type": "http.response.body",
-                                "body": chunk.encode(),
-                                "more_body": True,
-                            }
-                        )
-                    except TimeoutError:
-                        # Send keepalive comment
-                        await send(
-                            {
-                                "type": "http.response.body",
-                                "body": b": keepalive\n\n",
-                                "more_body": True,
-                            }
-                        )
-                    except Exception:
-                        break
-            finally:
-                _remove_sse_listener(source, q)
-            return
-
-        if method == "GET" and path == "/health":
-            router.clean_expired()
-            body = json.dumps(
-                {
-                    "status": "ok",
-                    "registered_sources": router.registered_sources,
-                    "routing_table_size": router.size,
-                    "uptime_seconds": int(time.monotonic() - _start_time),
-                }
-            ).encode()
-            await send(
-                {
-                    "type": "http.response.start",
-                    "status": 200,
-                    "headers": [
-                        [b"content-type", b"application/json"],
-                    ],
-                }
-            )
-            await send({"type": "http.response.body", "body": body})
-            return
-
-        if method == "POST" and path == "/register":
-            body = await _read_body(receive)
-            data = json.loads(body)
-            if not data.get("source"):
-                await _json_response(send, 400, {"error": "source is required"})
-                return
-            router.register_source(
-                data["source"],
-                data.get("description", ""),
-            )
-            await _json_response(
-                send,
-                200,
-                {"status": "registered", "source": data["source"]},
-            )
-            return
-
-        if method == "POST" and path == "/message":
-            body = await _read_body(receive)
-            data = json.loads(body)
-            source = data.get("source")
-            chat_id = data.get("chat_id")
-            content = data.get("content")
-            if not source or not chat_id or not content:
-                await _json_response(
-                    send,
-                    400,
-                    {"error": "source, chat_id, and content are required"},
+            except TimeoutError:
+                await send(
+                    {
+                        "type": "http.response.body",
+                        "body": b": keepalive\n\n",
+                        "more_body": True,
+                    }
                 )
-                return
+            except Exception:
+                break
+    finally:
+        _remove_sse_listener(source, q)
 
-            router.add(chat_id, source)
 
-            meta = {
-                "chat_id": chat_id,
-                "sender": data.get("sender", "unknown"),
-                "integration": source,
-            }
-            for k, v in data.get("metadata", {}).items():
-                meta[k] = str(v)
+async def _handle_register(
+    router: Router, receive: ASGIReceive, send: ASGISend,
+) -> None:
+    """Handle POST /register."""
+    body = await _read_body(receive)
+    data = json.loads(body)
+    if not data.get("source"):
+        await _json_response(send, 400, {"error": "source is required"})
+        return
+    router.register_source(
+        data["source"],
+        data.get("description", ""),
+    )
+    await _json_response(
+        send,
+        200,
+        {"status": "registered", "source": data["source"]},
+    )
 
-            # Notify Claude Code via MCP notification bridge
-            _enqueue_notification(content, meta)
 
-            emit_to_source(
-                source,
-                {"chat_id": chat_id, "content": content, "meta": meta},
-            )
-            await _json_response(
-                send,
-                200,
-                {"status": "queued", "chat_id": chat_id},
-            )
+async def _handle_message(
+    router: Router, receive: ASGIReceive, send: ASGISend,
+) -> None:
+    """Handle POST /message."""
+    body = await _read_body(receive)
+    data = json.loads(body)
+    source = data.get("source")
+    chat_id = data.get("chat_id")
+    content = data.get("content")
+    if not source or not chat_id or not content:
+        await _json_response(
+            send,
+            400,
+            {"error": "source, chat_id, and content are required"},
+        )
+        return
+
+    router.add(chat_id, source)
+
+    meta = {
+        "chat_id": chat_id,
+        "sender": data.get("sender", "unknown"),
+        "integration": source,
+    }
+    for k, v in data.get("metadata", {}).items():
+        meta[k] = str(v)
+
+    # Notify Claude Code via MCP notification bridge
+    _enqueue_notification(content, meta)
+
+    emit_to_source(
+        source,
+        {"chat_id": chat_id, "content": content, "meta": meta},
+    )
+    await _json_response(
+        send,
+        200,
+        {"status": "queued", "chat_id": chat_id},
+    )
+
+
+def create_http_app(router: Router) -> ASGIApp:
+    """Create an ASGI app with channel HTTP endpoints."""
+
+    async def app(
+        scope: ASGIScope, receive: ASGIReceive, send: ASGISend,
+    ) -> None:
+        if scope["type"] != "http":
+            return
+
+        method: str = scope["method"]
+        path: str = scope["path"]
+
+        if method == "GET" and path == "/events":
+            await _handle_events(scope, send)
+            return
+        if method == "GET" and path == "/health":
+            await _handle_health(router, send)
+            return
+        if method == "POST" and path == "/register":
+            await _handle_register(router, receive, send)
+            return
+        if method == "POST" and path == "/message":
+            await _handle_message(router, receive, send)
             return
 
         await _json_response(send, 404, {"error": "not found"})
@@ -242,17 +272,22 @@ def create_http_app(router: Router):  # noqa: PLR0915
     return app
 
 
-async def _read_body(receive) -> bytes:
+async def _read_body(receive: ASGIReceive) -> bytes:
+    """Read the full HTTP request body from an ASGI receive callable."""
     body = b""
     while True:
         msg = await receive()
-        body += msg.get("body", b"")
+        chunk: bytes = msg.get("body", b"")
+        body += chunk
         if not msg.get("more_body"):
             break
     return body
 
 
-async def _json_response(send, status: int, data: dict) -> None:
+async def _json_response(
+    send: ASGISend, status: int, data: dict[str, Any],
+) -> None:
+    """Send a JSON HTTP response."""
     body = json.dumps(data).encode()
     await send(
         {
@@ -288,7 +323,7 @@ def create_mcp_server(router: Router) -> Server:
         ),
     )
 
-    @server.list_tools()
+    @server.list_tools()  # type: ignore[no-untyped-call, untyped-decorator]
     async def handle_list_tools() -> list[types.Tool]:
         return [
             types.Tool(
@@ -349,7 +384,7 @@ def create_mcp_server(router: Router) -> Server:
             )
         ]
 
-    @server.call_tool()
+    @server.call_tool()  # type: ignore[untyped-decorator]
     async def handle_call_tool(
         name: str,
         arguments: dict[str, Any] | None = None,
@@ -377,7 +412,11 @@ def create_mcp_server(router: Router) -> Server:
     return server
 
 
-async def _notification_pump(server: Server, read_stream, write_stream) -> None:  # noqa: ARG001
+async def _notification_pump(
+    server: Server,  # noqa: ARG001
+    read_stream: Any,  # noqa: ARG001
+    write_stream: Any,
+) -> None:
     """Drain the notification queue and send MCP notifications to Claude Code.
 
     This runs on the MCP event loop and sends custom notifications
@@ -389,7 +428,7 @@ async def _notification_pump(server: Server, read_stream, write_stream) -> None:
     # We need the session to send notifications, but the session is created
     # inside server.run(). Instead, we'll send raw JSON-RPC notifications
     # directly to the write stream.
-    from mcp.shared.session import SessionMessage  # noqa: PLC0415
+    from mcp.shared.session import SessionMessage  # type: ignore[attr-defined]  # noqa: PLC0415, I001
     from mcp.types import JSONRPCNotification  # noqa: PLC0415
 
     while True:
@@ -401,7 +440,7 @@ async def _notification_pump(server: Server, read_stream, write_stream) -> None:
                 method="notifications/claude/channel",
                 params=item,  # {"content": "...", "meta": {...}}
             )
-            message = SessionMessage(message=notification)
+            message = SessionMessage(message=notification)  # type: ignore[arg-type]
             await write_stream.send(message)
             chat_id = item.get("meta", {}).get("chat_id", "unknown")
             log.debug(f"Sent channel notification: {chat_id}")
@@ -424,7 +463,7 @@ def main() -> None:
     server = create_mcp_server(router)
     http_app = create_http_app(router)
 
-    async def run():
+    async def run() -> None:
         global _mcp_loop  # noqa: PLW0603
         _mcp_loop = asyncio.get_running_loop()
 

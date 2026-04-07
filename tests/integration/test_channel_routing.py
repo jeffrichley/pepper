@@ -41,7 +41,12 @@ def channel_server():
 
 def test_health_endpoint(channel_server):
     """Health endpoint returns status and port."""
+    # Arrange - server is running via fixture
+
+    # Act - request health endpoint
     resp = httpx.get(f"http://127.0.0.1:{PORT}/health")
+
+    # Assert - returns ok status
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
@@ -49,19 +54,26 @@ def test_health_endpoint(channel_server):
 
 def test_register_integration(channel_server):
     """Register an integration and see it in health."""
+    # Arrange - server is running via fixture
+
+    # Act - register a test integration
     resp = httpx.post(
         f"http://127.0.0.1:{PORT}/register",
         json={"source": "test-bot", "description": "Test integration"},
     )
+
+    # Assert - registration succeeds and source appears in health
     assert resp.status_code == 200
     assert resp.json()["status"] == "registered"
-
     health = httpx.get(f"http://127.0.0.1:{PORT}/health").json()
     assert "test-bot" in health["registered_sources"]
 
 
 def test_post_message(channel_server):
     """Post a message and get queued response."""
+    # Arrange - server is running via fixture
+
+    # Act - post a message through the channel
     resp = httpx.post(
         f"http://127.0.0.1:{PORT}/message",
         json={
@@ -71,6 +83,8 @@ def test_post_message(channel_server):
             "content": "Hello from test",
         },
     )
+
+    # Assert - message is queued with correct chat_id
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "queued"
@@ -79,23 +93,38 @@ def test_post_message(channel_server):
 
 def test_post_message_validation(channel_server):
     """Missing required fields return 400."""
+    # Arrange - server is running via fixture
+
+    # Act - post a message missing required fields
     resp = httpx.post(
         f"http://127.0.0.1:{PORT}/message",
         json={"source": "test-bot"},
     )
+
+    # Assert - returns 400 for validation failure
     assert resp.status_code == 400
 
 
 def test_register_validation(channel_server):
     """Missing source on register returns 400."""
+    # Arrange - server is running via fixture
+
+    # Act - register without the required source field
     resp = httpx.post(
         f"http://127.0.0.1:{PORT}/register",
         json={"description": "no source"},
     )
+
+    # Assert - returns 400 for missing source
     assert resp.status_code == 400
 
 
 def test_not_found(channel_server):
     """Unknown routes return 404."""
+    # Arrange - server is running via fixture
+
+    # Act - request a nonexistent endpoint
     resp = httpx.get(f"http://127.0.0.1:{PORT}/nonexistent")
+
+    # Assert - returns 404
     assert resp.status_code == 404
