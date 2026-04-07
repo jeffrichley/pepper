@@ -1,73 +1,97 @@
 ---
-name: google
-description: Google Workspace integration for calendar, email, and documents. Use when user mentions calendar, schedule, meetings, availability, events, free time, or booking. Handles event lookup, scheduling, free/busy queries, and event creation. Do NOT use for general web search or non-Google questions.
-allowed-tools: Bash(uv --directory * run python pg.py *) Read
-metadata:
-  author: Pepper
-  version: "1.0"
+name: gog
+description: Google Workspace CLI for Gmail, Calendar, Drive, Contacts, Sheets, and Docs. Use when user mentions calendar, schedule, meetings, email, gmail, drive, documents, sheets, spreadsheets, or contacts.
 ---
 
-# Google Workspace
+# gog
 
-Pepper's Google integration. Currently supports Calendar. Gmail and Drive coming soon.
+Use `gog` for Gmail/Calendar/Drive/Contacts/Sheets/Docs. Requires OAuth setup.
 
-## Setup Check
+Setup (once)
 
-If any command below returns an error about authentication, guide the user:
-1. Run: `uv --directory $CLAUDE_PROJECT_DIR/.claude/skills/google/scripts run python pg.py auth login`
-2. This opens a browser for Google OAuth consent
-3. After approval, the token is saved at `~/.pepper/google/token.json`
+- `gog auth credentials /path/to/client_secret.json`
+- `gog auth add you@gmail.com --services gmail,calendar,drive,contacts,docs,sheets`
+- `gog auth list`
 
-## Current Context
+Common commands
 
-**Today's calendar:**
-```!
-uv --directory $CLAUDE_PROJECT_DIR/.claude/skills/google/scripts run python pg.py calendar events --today --json 2>/dev/null || echo "GOOGLE_NOT_CONFIGURED"
-```
+- Gmail search: `gog gmail search 'newer_than:7d' --max 10`
+- Gmail messages search (per email, ignores threading): `gog gmail messages search "in:inbox from:ryanair.com" --max 20 --account you@example.com`
+- Gmail send (plain): `gog gmail send --to a@b.com --subject "Hi" --body "Hello"`
+- Gmail send (multi-line): `gog gmail send --to a@b.com --subject "Hi" --body-file ./message.txt`
+- Gmail send (stdin): `gog gmail send --to a@b.com --subject "Hi" --body-file -`
+- Gmail send (HTML): `gog gmail send --to a@b.com --subject "Hi" --body-html "<p>Hello</p>"`
+- Gmail draft: `gog gmail drafts create --to a@b.com --subject "Hi" --body-file ./message.txt`
+- Gmail send draft: `gog gmail drafts send <draftId>`
+- Gmail reply: `gog gmail send --to a@b.com --subject "Re: Hi" --body "Reply" --reply-to-message-id <msgId>`
+- Calendar list events: `gog calendar events <calendarId> --from <iso> --to <iso>`
+- Calendar create event: `gog calendar create <calendarId> --summary "Title" --from <iso> --to <iso>`
+- Calendar create with color: `gog calendar create <calendarId> --summary "Title" --from <iso> --to <iso> --event-color 7`
+- Calendar update event: `gog calendar update <calendarId> <eventId> --summary "New Title" --event-color 4`
+- Calendar show colors: `gog calendar colors`
+- Drive search: `gog drive search "query" --max 10`
+- Contacts: `gog contacts list --max 20`
+- Sheets get: `gog sheets get <sheetId> "Tab!A1:D10" --json`
+- Sheets update: `gog sheets update <sheetId> "Tab!A1:B2" --values-json '[["A","B"],["1","2"]]' --input USER_ENTERED`
+- Sheets append: `gog sheets append <sheetId> "Tab!A:C" --values-json '[["x","y","z"]]' --insert INSERT_ROWS`
+- Sheets clear: `gog sheets clear <sheetId> "Tab!A2:Z"`
+- Sheets metadata: `gog sheets metadata <sheetId> --json`
+- Docs export: `gog docs export <docId> --format txt --out /tmp/doc.txt`
+- Docs cat: `gog docs cat <docId>`
 
-If the output above is `GOOGLE_NOT_CONFIGURED`, tell the user to run `pg auth login` first.
+Calendar Colors
 
-## Calendar Commands
+- Use `gog calendar colors` to see all available event colors (IDs 1-11)
+- Add colors to events with `--event-color <id>` flag
+- Event color IDs (from `gog calendar colors` output):
+  - 1: #a4bdfc
+  - 2: #7ae7bf
+  - 3: #dbadff
+  - 4: #ff887c
+  - 5: #fbd75b
+  - 6: #ffb878
+  - 7: #46d6db
+  - 8: #e1e1e1
+  - 9: #5484ed
+  - 10: #51b749
+  - 11: #dc2127
 
-All commands run via:
-`uv --directory $CLAUDE_PROJECT_DIR/.claude/skills/google/scripts run python pg.py calendar [subcommand]`
+Email Formatting
 
-### Reading Events
-- Today: `pg.py calendar events --today --json`
-- Specific date: `pg.py calendar events --date 2026-04-07 --json`
-- This week: `pg.py calendar events --week --json`
-- Date range: `pg.py calendar events --start 2026-04-07 --end 2026-04-14 --json`
+- Prefer plain text. Use `--body-file` for multi-paragraph messages (or `--body-file -` for stdin).
+- Same `--body-file` pattern works for drafts and replies.
+- `--body` does not unescape `\n`. If you need inline newlines, use a heredoc or `$'Line 1\n\nLine 2'`.
+- Use `--body-html` only when you need rich formatting.
+- HTML tags: `<p>` for paragraphs, `<br>` for line breaks, `<strong>` for bold, `<em>` for italic, `<a href="url">` for links, `<ul>`/`<li>` for lists.
+- Example (plain text via stdin):
 
-### Finding Free Time
-- Today: `pg.py calendar freebusy --today --json`
-- Tomorrow: `pg.py calendar freebusy --date tomorrow --json`
+  ```bash
+  gog gmail send --to recipient@example.com \
+    --subject "Meeting Follow-up" \
+    --body-file - <<'EOF'
+  Hi Name,
 
-### Creating Events
-CRITICAL: Never create an event without explicit user confirmation. Always show what you plan to create and wait for approval.
+  Thanks for meeting today. Next steps:
+  - Item one
+  - Item two
 
-- Timed: `pg.py calendar create "Meeting" --start "2026-04-07 10:00" --end "2026-04-07 11:00" --json`
-- With duration: `pg.py calendar create "Lunch" --start "2026-04-07 12:00" --duration 60 --json`
-- All day: `pg.py calendar create "Review day" --date 2026-04-07 --json`
+  Best regards,
+  Your Name
+  EOF
+  ```
 
-### Deleting Events
-CRITICAL: Never delete without explicit user confirmation.
+- Example (HTML list):
+  ```bash
+  gog gmail send --to recipient@example.com \
+    --subject "Meeting Follow-up" \
+    --body-html "<p>Hi Name,</p><p>Thanks for meeting today. Here are the next steps:</p><ul><li>Item one</li><li>Item two</li></ul><p>Best regards,<br>Your Name</p>"
+  ```
 
-- `pg.py calendar delete EVENT_ID`
+Notes
 
-### Listing Calendars
-- `pg.py calendar calendars --json`
-
-## Workflow Guidelines
-
-- When asked about schedule: fetch events first, then summarize
-- When asked to schedule something: check freebusy first, suggest times, get confirmation, then create
-- For morning briefings: fetch today's events and format as a summary
-- When sending calendar info to Discord: use rich embeds with fields for each event
-- Check `references/calendar.md` for detailed API patterns and error handling
-
-## Error Handling
-
-- "Not authenticated": Direct user to `pg auth login`
-- "Token expired": The CLI auto-refreshes. If it fails, direct to `pg auth login`
-- API quota errors: Wait 60 seconds, retry once
-- 404 on event: Event was deleted or calendar changed, inform user
+- Set `GOG_ACCOUNT=you@gmail.com` to avoid repeating `--account`.
+- For scripting, prefer `--json` plus `--no-input`.
+- Sheets values can be passed via `--values-json` (recommended) or as inline rows.
+- Docs supports export/cat/copy. In-place edits require a Docs API client (not in gog).
+- Confirm before sending mail or creating events.
+- `gog gmail search` returns one row per thread; use `gog gmail messages search` when you need every individual email returned separately.
