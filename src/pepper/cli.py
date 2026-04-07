@@ -1,9 +1,15 @@
 """Pepper CLI — manage your Second Brain runtime."""
 
+import subprocess
+import sys
 from pathlib import Path
 
 import typer
 from rich import print as rprint
+
+from pepper.init.generator import generate_runtime
+from pepper.process import get_runtime_path, get_pid_file, write_pid, read_pid, remove_pid, is_process_alive
+
 
 app = typer.Typer(
     name="pepper",
@@ -18,16 +24,13 @@ def init(
     repo_vault: str = typer.Option("", help="Path to existing Memory/ vault to migrate from"),
 ) -> None:
     """Initialize the Pepper runtime workspace at ~/.pepper/."""
-    from pepper.init.generator import generate_runtime
-
-    runtime_path = Path.home() / ".pepper"
+    runtime_path = get_runtime_path()
 
     migrate_from = None
     if migrate:
         if repo_vault:
             migrate_from = Path(repo_vault)
         else:
-            # Try to find Memory/ in current directory
             cwd_vault = Path.cwd() / "Memory"
             if cwd_vault.is_dir():
                 migrate_from = cwd_vault
@@ -59,15 +62,88 @@ def init(
 
 
 @app.command()
-def start() -> None:
-    """Start Pepper MCP servers and integrations."""
-    typer.echo("pepper start — not yet implemented")
+def start(
+    background: bool = typer.Option(False, help="Run Pepper in the background (headless)"),
+) -> None:
+    """Start Pepper. Auto-updates runtime config before launching."""
+    runtime_path = get_runtime_path()
+
+    # Auto-update runtime (creates if needed)
+    generate_runtime(runtime_path=runtime_path)
+
+    if background:
+        _start_background(runtime_path)
+    else:
+        _start_interactive(runtime_path)
+
+
+def _start_interactive(runtime_path: Path) -> None:
+    """Launch Claude Code interactively in the runtime directory."""
+    rprint(f"[green]Starting Pepper at {runtime_path}...[/green]")
+    result = subprocess.run(["claude"], cwd=str(runtime_path))
+    raise typer.Exit(result.returncode)
+
+
+def _start_background(runtime_path: Path) -> None:
+    """Spawn Claude Code in the background and write PID file."""
+    pid_file = get_pid_file()
+
+    # Check if already running
+    existing_pid = read_pid(pid_file)
+    if existing_pid and is_process_alive(existing_pid):
+        rprint(f"[yellow]Pepper is already running (PID: {existing_pid})[/yellow]")
+        raise typer.Exit(1)
+
+    proc = subprocess.Popen(
+        [
+            "claude",
+            "--dangerously-skip-permissions",
+            "-p",
+            "You are Pepper. Monitor Discord and handle scheduled tasks.",
+        ],
+        cwd=str(runtime_path),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+    write_pid(pid_file, proc.pid)
+    rprint(f"[green]Pepper started (PID: {proc.pid})[/green]")
 
 
 @app.command()
 def stop() -> None:
-    """Stop running Pepper services."""
-    typer.echo("pepper stop — not yet implemented")
+    """Stop a background Pepper instance."""
+    from pepper.process import kill_process_tree
+
+    pid_file = get_pid_file()
+    pid = read_pid(pid_file)
+
+    if pid is None or not is_process_alive(pid):
+        rprint("[yellow]Pepper is not running.[/yellow]")
+        remove_pid(pid_file)
+        raise typer.Exit(0)
+
+    kill_process_tree(pid)
+    remove_pid(pid_file)
+    rprint(f"[green]Pepper stopped (PID: {pid})[/green]")
+
+
+@app.command()
+def status() -> None:
+    """Check if Pepper is running."""
+    pid_file = get_pid_file()
+    pid = read_pid(pid_file)
+
+    if pid is None:
+        rprint("[yellow]Pepper is not running.[/yellow]")
+        raise typer.Exit(0)
+
+    if is_process_alive(pid):
+        rprint(f"[green]Pepper is running (PID: {pid})[/green]")
+    else:
+        rprint("[yellow]Pepper is not running (stale PID file).[/yellow]")
+        remove_pid(pid_file)
 
 
 if __name__ == "__main__":
