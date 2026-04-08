@@ -28,7 +28,11 @@ from .slash_commands import setup_commands
 
 # Type alias for channels that support send/fetch_message/typing/history
 Messageable = (
-    discord.TextChannel | discord.Thread | discord.VoiceChannel | discord.StageChannel
+    discord.TextChannel
+    | discord.Thread
+    | discord.VoiceChannel
+    | discord.StageChannel
+    | discord.DMChannel
 )
 
 log = logging.getLogger("pepper-discord")
@@ -139,12 +143,29 @@ def _build_payload(
 @client.event
 async def on_message(message: discord.Message) -> None:
     """Forward Discord messages to the channel server."""
+    log.info(
+        f"on_message: author={message.author} "
+        f"(id={message.author.id}, bot={message.author.bot}) "
+        f"channel={message.channel.id} "
+        f"guild={message.guild.id if message.guild else 'DM'} "
+        f"content={message.content[:50]!r}"
+    )
+
     if message.author == client.user or message.author.bot:
+        log.info("on_message: DROPPED (own message or bot)")
         return
 
     assert client.user is not None
     if not gate(message, client.user, _access_config, _recent_bot_message_ids):
+        log.info(
+            f"on_message: DROPPED by gate "
+            f"(dmPolicy={_access_config.get('dmPolicy')}, "
+            f"allowFrom={_access_config.get('allowFrom')}, "
+            f"channels={list(_access_config.get('channels', {}).keys())})"
+        )
         return
+
+    log.info("on_message: PASSED gate, forwarding to channel server")
 
     ack_emoji = _access_config.get("ackReaction", "")
     if ack_emoji:
@@ -180,29 +201,41 @@ async def listen_for_replies() -> None:
     """Connect to the channel server SSE stream and relay replies to Discord."""
     backoff = 1.0
     max_backoff = 30.0
+    log.info(f"listen_for_replies: starting, will connect to {CHANNEL_URL}/events")
 
     while True:
         try:
+            log.info(f"listen_for_replies: connecting to SSE (backoff={backoff}s)...")
             async with (
                 httpx.AsyncClient(timeout=httpx.Timeout(None)) as http,
                 http.stream("GET", f"{CHANNEL_URL}/events?source=discord") as resp,
             ):
-                backoff = 1.0  # Reset on successful connection
-                log.info("Connected to channel server SSE stream")
+                backoff = 1.0
+                log.info("listen_for_replies: CONNECTED to SSE stream")
 
                 async for line in resp.aiter_lines():
+                    log.info(f"listen_for_replies: SSE line: {line[:80]!r}")
                     if not line.startswith("data: "):
                         continue
 
                     try:
                         data = json.loads(line[6:])
                     except json.JSONDecodeError:
+                        log.warning(f"listen_for_replies: bad JSON: {line[:80]!r}")
                         continue
 
+                    cid = data.get("chat_id", "?")
+                    log.info(f"listen_for_replies: dispatching reply for {cid}")
                     await handle_reply(data)
 
         except (httpx.ConnectError, httpx.ReadError) as e:
-            log.warning(f"SSE connection lost: {e}. Reconnecting in {backoff}s...")
+            log.warning(
+                f"listen_for_replies: SSE lost: {e}. Reconnecting in {backoff}s..."
+            )
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, max_backoff)
+        except Exception as e:
+            log.error(f"listen_for_replies: UNEXPECTED ERROR: {type(e).__name__}: {e}")
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, max_backoff)
 
@@ -236,11 +269,16 @@ async def _resolve_channel(channel_id: int) -> Messageable | None:
     if channel is None:
         try:
             channel = await client.fetch_channel(channel_id)
-        except discord.NotFound:
-            log.warning(f"Channel {channel_id} not found")
+        except (discord.NotFound, discord.Forbidden):
+            log.warning(f"Channel {channel_id} not found, trying as DM user ID")
+            # DM channels may not be fetchable by channel ID.
+            # The channel_id in DM chat_ids is actually a DM channel ID,
+            # which discord.py may not resolve. Try the cache.
             return None
     if not isinstance(channel, Messageable):
-        log.warning(f"Channel {channel_id} is not a messageable channel")
+        log.warning(
+            f"Channel {channel_id} is not messageable (type={type(channel).__name__})"
+        )
         return None
     return channel
 
@@ -329,16 +367,19 @@ async def handle_reply(data: dict[str, Any]) -> None:
     text = data.get("text", "")
     metadata: dict[str, Any] = data.get("metadata", {})
 
-    channel_id = _parse_channel_id(chat_id)
-    if channel_id is None:
-        return
+    # Try cached channel first (essential for DMs which can't be fetched by ID)
+    pending = pending_chat_ids.pop(chat_id, None)
+    if pending is not None:
+        channel: Messageable | None = pending[0]  # type: ignore[assignment]
+    else:
+        channel_id = _parse_channel_id(chat_id)
+        if channel_id is None:
+            return
+        channel = await _resolve_channel(channel_id)
 
-    channel = await _resolve_channel(channel_id)
     if channel is None:
+        log.warning(f"handle_reply: no channel for {chat_id}")
         return
-
-    # Remove from pending (stop typing indicator tracking)
-    pending_chat_ids.pop(chat_id, None)
 
     # Handle reactions
     reply_type = metadata.get("type", "message")

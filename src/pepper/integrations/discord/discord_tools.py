@@ -22,7 +22,11 @@ from .views import BriefingView
 
 # Type alias for channels that support send/fetch_message/typing/history
 Messageable = (
-    discord.TextChannel | discord.Thread | discord.VoiceChannel | discord.StageChannel
+    discord.TextChannel
+    | discord.Thread
+    | discord.VoiceChannel
+    | discord.StageChannel
+    | discord.DMChannel
 )
 
 log = logging.getLogger("pepper-discord")
