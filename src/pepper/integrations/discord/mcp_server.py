@@ -28,7 +28,7 @@ log = logging.getLogger("pepper-mcp")
 
 # Import integration modules
 from .bot import client, start_bot  # noqa: E402
-from .config import CHANNEL_URL, DISCORD_BOT_TOKEN  # noqa: E402
+from .config import CHANNEL_URL, require_token  # noqa: E402
 from .discord_tools import (  # noqa: E402
     add_reaction_impl,
     cancel_scheduled_event_impl,
@@ -75,7 +75,8 @@ async def lifespan(server: FastMCP) -> AsyncIterator[None]:
             signal.signal(sig, lambda *_: shutdown_event.set())
 
     # Start Discord bot and stdin watcher
-    bot_task = asyncio.create_task(start_bot(DISCORD_BOT_TOKEN))
+    token = require_token()
+    bot_task = asyncio.create_task(start_bot(token))
     stdin_task = asyncio.create_task(_watch_stdin(shutdown_event))
     log.info("Discord bot starting...")
 

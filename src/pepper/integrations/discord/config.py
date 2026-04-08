@@ -17,8 +17,12 @@ load_dotenv(INTEGRATION_DIR / ".env")
 DISCORD_BOT_TOKEN: str = os.environ.get("DISCORD_BOT_TOKEN", "")
 CHANNEL_URL: str = os.environ.get("PEPPER_CHANNEL_URL", "http://localhost:8788")
 
-if not DISCORD_BOT_TOKEN:
-    raise RuntimeError(
-        "DISCORD_BOT_TOKEN is not set. "
-        "Set it in ~/.pepper/.env or as an environment variable."
-    )
+
+def require_token() -> str:
+    """Return the bot token, raising if not set. Call at bot startup, not import."""
+    if not DISCORD_BOT_TOKEN:
+        raise RuntimeError(
+            "DISCORD_BOT_TOKEN is not set. "
+            "Set it in ~/.pepper/.env or as an environment variable."
+        )
+    return DISCORD_BOT_TOKEN
