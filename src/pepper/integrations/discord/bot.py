@@ -21,6 +21,7 @@ import httpx
 
 from pepper.attachments import download_attachment
 
+from .access import gate, load_access
 from .config import CHANNEL_URL
 from .embeds import build_embed
 
@@ -38,6 +39,13 @@ client = discord.Client(intents=intents)
 
 DISCORD_MSG_LIMIT = 2000
 _MAX_EMOJI_LEN = 2
+_MAX_RECENT_BOT_MESSAGES = 200
+
+# Access control config (loaded on startup)
+_access_config = load_access()
+
+# Track recent message IDs sent by the bot (for reply-to detection)
+_recent_bot_message_ids: set[int] = set()
 
 # Track pending messages so we can hold typing indicators
 # Stores (channel, timestamp) so we can expire stale entries
@@ -80,6 +88,11 @@ async def on_message(message: discord.Message) -> None:
 
     # Ignore bot messages
     if message.author.bot:
+        return
+
+    # Access control gate
+    assert client.user is not None
+    if not gate(message, client.user, _access_config, _recent_bot_message_ids):
         return
 
     chat_id = make_chat_id(message)
@@ -247,6 +260,13 @@ def _prepare_file_attachments(metadata: dict[str, Any]) -> list[discord.File]:
     return files
 
 
+def _track_bot_message(message_id: int) -> None:
+    """Track a bot message ID for reply-to detection, capping the set."""
+    _recent_bot_message_ids.add(message_id)
+    while len(_recent_bot_message_ids) > _MAX_RECENT_BOT_MESSAGES:
+        _recent_bot_message_ids.pop()
+
+
 async def _send_text_reply(
     channel: Messageable,
     text: str,
@@ -256,11 +276,12 @@ async def _send_text_reply(
     """Send a text reply, splitting into chunks if needed."""
     send_files = files if files else None
     if len(text) <= DISCORD_MSG_LIMIT:
-        await channel.send(
+        msg = await channel.send(
             text,
             embed=embed,  # type: ignore[arg-type]
             files=send_files,  # type: ignore[arg-type]
         )
+        _track_bot_message(msg.id)
     else:
         chunks = [
             text[i : i + DISCORD_MSG_LIMIT]
@@ -268,11 +289,12 @@ async def _send_text_reply(
         ]
         for i, chunk in enumerate(chunks):
             is_last = i == len(chunks) - 1
-            await channel.send(
+            msg = await channel.send(
                 chunk,
                 embed=embed if is_last else None,  # type: ignore[arg-type]
                 files=send_files if is_last else None,  # type: ignore[arg-type]
             )
+            _track_bot_message(msg.id)
 
 
 async def _send_embed_or_files(
@@ -281,12 +303,15 @@ async def _send_embed_or_files(
     files: list[discord.File],
 ) -> None:
     """Send an embed and/or file attachments without text content."""
+    msg: discord.Message | None = None
     if embed and files:
-        await channel.send("", embed=embed, files=files)
+        msg = await channel.send("", embed=embed, files=files)
     elif embed:
-        await channel.send(embed=embed)
+        msg = await channel.send(embed=embed)
     elif files:
-        await channel.send("", files=files)
+        msg = await channel.send("", files=files)
+    if msg is not None:
+        _track_bot_message(msg.id)
 
 
 async def handle_reply(data: dict[str, Any]) -> None:
