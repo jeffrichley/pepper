@@ -140,9 +140,13 @@ async def send_discord_message_impl(
                 files=discord_files if is_last else None,
             )
     elif text:
-        sent_message = await channel.send(text, embed=discord_embed, files=discord_files or None)  # type: ignore[arg-type]
+        sent_message = await channel.send(  # type: ignore[arg-type]
+            text, embed=discord_embed, files=discord_files or None,
+        )
     elif discord_embed or discord_files:
-        sent_message = await channel.send(embed=discord_embed, files=discord_files or None)  # type: ignore[arg-type]
+        sent_message = await channel.send(  # type: ignore[arg-type]
+            embed=discord_embed, files=discord_files or None,
+        )
     else:
         return {
             "status": "error",

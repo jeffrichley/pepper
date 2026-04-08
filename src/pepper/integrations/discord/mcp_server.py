@@ -8,7 +8,9 @@ Exposes Discord tools via MCP over stdio.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import signal
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -37,22 +39,51 @@ from .discord_tools import (  # noqa: E402
     send_typing_impl,
 )
 
+SHUTDOWN_TIMEOUT_SECONDS = 2.0
+
+
+async def _watch_stdin(shutdown_event: asyncio.Event) -> None:
+    """Watch for stdin EOF (MCP connection end) and signal shutdown."""
+    loop = asyncio.get_running_loop()
+    with contextlib.suppress(Exception):
+        await loop.run_in_executor(None, sys.stdin.read)
+    log.info("stdin closed — MCP connection ended")
+    shutdown_event.set()
+
 
 @asynccontextmanager
 async def lifespan(server: FastMCP) -> AsyncIterator[None]:  # noqa: ARG001
-    """Start Discord bot on MCP server startup."""
+    """Start Discord bot on MCP server startup with graceful shutdown."""
     log.info("Starting Pepper Discord integration...")
 
-    # Start Discord bot as a background task
+    shutdown_event = asyncio.Event()
+
+    # Register signal handlers
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, shutdown_event.set)
+        except NotImplementedError:
+            # Windows doesn't support add_signal_handler for all signals
+            signal.signal(sig, lambda *_: shutdown_event.set())
+
+    # Start Discord bot and stdin watcher
     bot_task = asyncio.create_task(start_bot(DISCORD_BOT_TOKEN))
+    stdin_task = asyncio.create_task(_watch_stdin(shutdown_event))
     log.info("Discord bot starting...")
 
-    yield
-
-    # Shutdown
-    log.info("Shutting down...")
-    client.clear()
-    bot_task.cancel()
+    # Wait for shutdown signal
+    shutdown_wait = asyncio.create_task(shutdown_event.wait())
+    try:
+        yield
+    finally:
+        # Shutdown triggered — clean up Discord client
+        log.info("Shutting down Discord bot...")
+        await client.close()
+        bot_task.cancel()
+        stdin_task.cancel()
+        shutdown_wait.cancel()
+        log.info("Discord bot shut down")
 
 
 # Create the MCP server
