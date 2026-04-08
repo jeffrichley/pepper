@@ -16,6 +16,7 @@ import httpx
 
 from .chunking import smart_chunk
 from .embeds import build_embed
+from .views import BriefingView
 
 # Type alias for channels that support send/fetch_message/typing/history
 Messageable = (
@@ -311,3 +312,31 @@ async def get_channel_info_impl(
         info["guild_name"] = guild.name
         info["member_count"] = guild.member_count
     return info
+
+
+async def send_briefing_impl(
+    client: discord.Client,
+    channel_id: str,
+    channel_url: str,
+    summary: str = "",
+    embed: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    """Send an interactive briefing with navigation buttons.
+
+    The briefing includes a summary embed and buttons for
+    Tasks, Calendar, Priorities, and Projects. Button presses
+    send prompts to the channel server for Pepper to handle.
+    """
+    channel = await _get_messageable(client, channel_id)
+    if channel is None:
+        return {"status": "error", "message": f"Channel {channel_id} not found"}
+
+    discord_embed = build_embed(embed)
+    view = BriefingView(channel_url, channel_id)
+
+    msg = await channel.send(
+        summary,
+        embed=discord_embed,  # type: ignore[arg-type]
+        view=view,
+    )
+    return {"status": "sent", "message_id": str(msg.id)}

@@ -28,13 +28,14 @@ log = logging.getLogger("pepper-mcp")
 
 # Import integration modules
 from .bot import client, start_bot  # noqa: E402
-from .config import DISCORD_BOT_TOKEN  # noqa: E402
+from .config import CHANNEL_URL, DISCORD_BOT_TOKEN  # noqa: E402
 from .discord_tools import (  # noqa: E402
     add_reaction_impl,
     edit_message_impl,
     fetch_messages_impl,
     get_channel_info_impl,
     list_channels_impl,
+    send_briefing_impl,
     send_discord_message_impl,
     send_typing_impl,
 )
@@ -205,6 +206,28 @@ async def get_channel_info(channel_id: str) -> dict[str, Any]:
         channel_id: The channel to inspect.
     """
     return await get_channel_info_impl(client, channel_id)
+
+
+@mcp.tool()
+async def send_briefing(
+    channel_id: str,
+    summary: str = "",
+    embed: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    """Send an interactive briefing with navigation buttons.
+
+    Sends a summary embed with buttons for Tasks, Calendar,
+    Priorities, and Projects. When Jeff taps a button, Pepper
+    receives a prompt to expand that section.
+
+    Args:
+        channel_id: The channel to send the briefing to.
+        summary: Brief summary text above the embed.
+        embed: Rich embed with the briefing overview.
+    """
+    return await send_briefing_impl(
+        client, channel_id, CHANNEL_URL, summary, embed,
+    )
 
 
 def run() -> None:
