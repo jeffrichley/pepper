@@ -17,9 +17,9 @@ flowchart TD
     end
 
     subgraph B2["Batch 2: Message Flow"]
-        I9["#9 access control"]:::notstarted
-        I12["#12 mention detection"]:::notstarted
-        I15["#15 smart chunking"]:::notstarted
+        I9["#9 access control"]:::done
+        I12["#12 mention detection"]:::done
+        I15["#15 smart chunking"]:::done
     end
 
     subgraph B3["Batch 3: Rich Interactions"]
@@ -99,13 +99,13 @@ flowchart TD
 
 Update this as issues close:
 
-- [ ] #9 — access control
+- [x] #9 — access control
 - [x] #10 — edit_message
 - [x] #11 — fetch_messages
-- [ ] #12 — mention detection
+- [x] #12 — mention detection
 - [ ] #13 — threading + reply-to
 - [x] #14 — graceful shutdown
-- [ ] #15 — smart chunking
+- [x] #15 — smart chunking
 - [ ] #16 — briefing dashboard
 - [ ] #17 — project threads
 - [ ] #18 — polls
