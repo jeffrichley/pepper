@@ -23,10 +23,10 @@ flowchart LR
     end
 
     subgraph B3["Batch 3: Rich Interactions"]
-        I13["#13 threading + reply-to"]:::notstarted
-        I22["#22 progress embeds"]:::notstarted
-        I19["#19 slash commands"]:::notstarted
-        I16["#16 briefing dashboard"]:::notstarted
+        I13["#13 threading + reply-to"]:::done
+        I22["#22 progress embeds"]:::done
+        I19["#19 slash commands"]:::done
+        I16["#16 briefing dashboard"]:::done
     end
 
     subgraph B4["Batch 4: Power Features"]
@@ -105,16 +105,16 @@ Update this as issues close:
 - [x] #10 — edit_message
 - [x] #11 — fetch_messages
 - [x] #12 — mention detection
-- [ ] #13 — threading + reply-to
+- [x] #13 — threading + reply-to
 - [x] #14 — graceful shutdown
 - [x] #15 — smart chunking
-- [ ] #16 — briefing dashboard
+- [x] #16 — briefing dashboard
 - [ ] #17 — project threads
 - [ ] #18 — polls
-- [ ] #19 — slash commands
+- [x] #19 — slash commands
 - [ ] #20 — forum channel
 - [ ] #21 — permission relay
-- [ ] #22 — progress embeds
+- [x] #22 — progress embeds
 - [ ] #23 — attachment security
 - [ ] #24 — modal forms
 - [ ] #25 — download_attachment
