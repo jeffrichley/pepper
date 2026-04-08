@@ -1,5 +1,6 @@
 """Pepper CLI — manage your Second Brain runtime."""
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -100,12 +101,31 @@ def start(
         _start_interactive(runtime_path)
 
 
+def _load_env(runtime_path: Path) -> dict[str, str]:
+    """Load .env from runtime directory into a dict, merged with current env."""
+    env = dict(os.environ)
+    env_file = runtime_path / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            if "=" in line and not line.startswith("#"):
+                key, _, value = line.partition("=")
+                env[key.strip()] = value.strip()
+    return env
+
+
 def _start_interactive(runtime_path: Path) -> None:
     """Launch Claude Code interactively in the runtime directory."""
     rprint(f"[green]Starting Pepper at {runtime_path}...[/green]")
+    env = _load_env(runtime_path)
     result = subprocess.run(  # noqa: PLW1510
-        ["claude", "--continue", "--channels", "plugin:discord@claude-plugins-official"],
+        [
+            "claude",
+            "--continue",
+            "--channels",
+            "plugin:discord@claude-plugins-official",
+        ],
         cwd=str(runtime_path),
+        env=env,
     )
     raise typer.Exit(result.returncode)
 
