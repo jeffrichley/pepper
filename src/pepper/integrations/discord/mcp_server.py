@@ -30,8 +30,8 @@ from .config import DISCORD_BOT_TOKEN  # noqa: E402
 from .discord_tools import (  # noqa: E402
     add_reaction_impl,
     edit_message_impl,
+    fetch_messages_impl,
     get_channel_info_impl,
-    get_recent_messages_impl,
     list_channels_impl,
     send_discord_message_impl,
     send_typing_impl,
@@ -145,17 +145,21 @@ async def list_channels(guild_id: str | None = None) -> list[dict[str, Any]]:
 
 
 @mcp.tool()
-async def get_recent_messages(
+async def fetch_messages(
     channel_id: str,
-    limit: int = 10,
+    limit: int = 20,
 ) -> list[dict[str, Any]]:
-    """Fetch recent messages from a Discord channel.
+    """Fetch recent messages from a Discord channel, oldest first.
+
+    Returns messages with IDs, author info, content, timestamps,
+    and attachment counts. This is the only lookback mechanism
+    available (Discord search API is not exposed to bots).
 
     Args:
         channel_id: The channel to read from.
-        limit: Number of messages to fetch (default 10, max 50).
+        limit: Number of messages to fetch (default 20, max 100).
     """
-    return await get_recent_messages_impl(client, channel_id, limit)
+    return await fetch_messages_impl(client, channel_id, limit)
 
 
 @mcp.tool()

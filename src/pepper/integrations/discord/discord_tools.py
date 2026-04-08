@@ -245,26 +245,34 @@ async def list_channels_impl(
     return channels
 
 
-async def get_recent_messages_impl(
+async def fetch_messages_impl(
     client: discord.Client,
     channel_id: str,
-    limit: int = 10,
+    limit: int = 20,
 ) -> list[dict[str, Any]]:
-    """Fetch recent messages from a Discord channel."""
-    limit = min(limit, 50)
+    """Fetch recent messages from a Discord channel, oldest first.
+
+    Returns up to `limit` messages (max 100 per Discord API).
+    Each message includes ID, author, content, timestamp, and attachment count.
+    """
+    limit = min(limit, 100)
     channel = await _get_messageable(client, channel_id)
     if channel is None:
         return []
 
-    return [
+    messages = [
         {
             "id": str(msg.id),
             "author": msg.author.display_name,
+            "is_bot": msg.author.bot,
             "content": msg.content,
             "timestamp": msg.created_at.isoformat(),
+            "attachments": len(msg.attachments),
         }
         async for msg in channel.history(limit=limit)
     ]
+    messages.reverse()  # Oldest first
+    return messages
 
 
 async def get_channel_info_impl(

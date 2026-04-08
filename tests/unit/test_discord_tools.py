@@ -106,6 +106,74 @@ async def test_add_reaction(mock_client):
 
 
 @pytest.mark.asyncio
+async def test_fetch_messages(mock_client):
+    """Fetch messages returns oldest-first with attachment counts."""
+    # Arrange - set up client with message history
+    client, channel = mock_client
+
+    msg1 = MagicMock()
+    msg1.id = 100
+    msg1.author = MagicMock()
+    msg1.author.display_name = "Jeff"
+    msg1.author.bot = False
+    msg1.content = "Hello"
+    msg1.created_at = MagicMock()
+    msg1.created_at.isoformat = MagicMock(return_value="2026-04-08T10:00:00")
+    msg1.attachments = []
+
+    msg2 = MagicMock()
+    msg2.id = 101
+    msg2.author = MagicMock()
+    msg2.author.display_name = "Pepper"
+    msg2.author.bot = True
+    msg2.content = "Hi Jeff!"
+    msg2.created_at = MagicMock()
+    msg2.created_at.isoformat = MagicMock(return_value="2026-04-08T10:00:05")
+    msg2.attachments = [MagicMock(), MagicMock()]
+
+    # Discord history returns newest-first
+    async def mock_history(limit=20):
+        for msg in [msg2, msg1]:
+            yield msg
+
+    channel.history = mock_history
+    from pepper.integrations.discord.discord_tools import fetch_messages_impl
+
+    # Act - fetch messages
+    result = await fetch_messages_impl(client, "123456", limit=10)
+
+    # Assert - verify oldest-first ordering and fields
+    assert len(result) == 2
+    assert result[0]["id"] == "100"
+    assert result[0]["author"] == "Jeff"
+    assert result[0]["is_bot"] is False
+    assert result[0]["attachments"] == 0
+    assert result[1]["id"] == "101"
+    assert result[1]["is_bot"] is True
+    assert result[1]["attachments"] == 2
+
+
+@pytest.mark.asyncio
+async def test_fetch_messages_respects_limit(mock_client):
+    """Fetch messages caps at 100."""
+    # Arrange
+    client, channel = mock_client
+
+    async def mock_history(limit=20):
+        return
+        yield  # empty async generator
+
+    channel.history = mock_history
+    from pepper.integrations.discord.discord_tools import fetch_messages_impl
+
+    # Act - request over the limit
+    result = await fetch_messages_impl(client, "123456", limit=200)
+
+    # Assert - no crash, returns empty
+    assert result == []
+
+
+@pytest.mark.asyncio
 async def test_edit_message(mock_client):
     """Edit a bot message by ID."""
     # Arrange - set up client with a bot-owned message
