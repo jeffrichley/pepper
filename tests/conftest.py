@@ -11,6 +11,11 @@ from typing import Any
 import pytest
 
 # ---------------------------------------------------------------------------
+# Fake environment for tests — ensures tests never depend on real secrets
+# ---------------------------------------------------------------------------
+os.environ.setdefault("DISCORD_BOT_TOKEN", "test-token-not-real")
+
+# ---------------------------------------------------------------------------
 # Auto marker injection based on test directory
 # ---------------------------------------------------------------------------
 MARKER_MAP: dict[str, str] = {
