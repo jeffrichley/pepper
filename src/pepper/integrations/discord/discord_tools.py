@@ -14,6 +14,7 @@ from typing import Any
 import discord
 import httpx
 
+from .chunking import smart_chunk
 from .embeds import build_embed
 
 # Type alias for channels that support send/fetch_message/typing/history
@@ -127,22 +128,16 @@ async def send_discord_message_impl(
     discord_files = await _prepare_files(files)
 
     sent_message: discord.Message | None = None
-    if text and len(text) > DISCORD_MSG_LIMIT:
-        chunks = [
-            text[i : i + DISCORD_MSG_LIMIT]
-            for i in range(0, len(text), DISCORD_MSG_LIMIT)
-        ]
+    if text:
+        chunks = smart_chunk(text)
         for i, chunk in enumerate(chunks):
+            is_first = i == 0
             is_last = i == len(chunks) - 1
             sent_message = await channel.send(  # type: ignore[arg-type]
                 chunk,
                 embed=discord_embed if is_last else None,
-                files=discord_files if is_last else None,
+                files=discord_files if is_first else None,
             )
-    elif text:
-        sent_message = await channel.send(  # type: ignore[arg-type]
-            text, embed=discord_embed, files=discord_files or None,
-        )
     elif discord_embed or discord_files:
         sent_message = await channel.send(  # type: ignore[arg-type]
             embed=discord_embed, files=discord_files or None,

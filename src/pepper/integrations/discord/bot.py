@@ -22,6 +22,7 @@ import httpx
 from pepper.attachments import download_attachment
 
 from .access import gate, load_access
+from .chunking import smart_chunk
 from .config import CHANNEL_URL
 from .embeds import build_embed
 
@@ -273,28 +274,18 @@ async def _send_text_reply(
     embed: discord.Embed | None,
     files: list[discord.File],
 ) -> None:
-    """Send a text reply, splitting into chunks if needed."""
+    """Send a text reply, splitting at natural boundaries if needed."""
     send_files = files if files else None
-    if len(text) <= DISCORD_MSG_LIMIT:
+    chunks = smart_chunk(text)
+
+    for i, chunk in enumerate(chunks):
+        is_last = i == len(chunks) - 1
         msg = await channel.send(
-            text,
-            embed=embed,  # type: ignore[arg-type]
-            files=send_files,  # type: ignore[arg-type]
+            chunk,
+            embed=embed if is_last else None,  # type: ignore[arg-type]
+            files=send_files if is_last else None,  # type: ignore[arg-type]
         )
         _track_bot_message(msg.id)
-    else:
-        chunks = [
-            text[i : i + DISCORD_MSG_LIMIT]
-            for i in range(0, len(text), DISCORD_MSG_LIMIT)
-        ]
-        for i, chunk in enumerate(chunks):
-            is_last = i == len(chunks) - 1
-            msg = await channel.send(
-                chunk,
-                embed=embed if is_last else None,  # type: ignore[arg-type]
-                files=send_files if is_last else None,  # type: ignore[arg-type]
-            )
-            _track_bot_message(msg.id)
 
 
 async def _send_embed_or_files(
