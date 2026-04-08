@@ -25,6 +25,7 @@ dependencies = [
 pepper = "pepper.cli:app"
 pepper-channel = "pepper.channel.server:main"
 pepper-discord = "pepper.integrations.discord.mcp_server:run"
+pepper-scheduler = "pepper.scheduler.mcp_server:run"
 
 [dependency-groups]
 dev = [
@@ -94,8 +95,9 @@ convention = "google"
     "E501",     # long assertion messages and fixture data
     "F841",     # unused variables in test setup
 ]
-# Discord integration uses relative imports by design (sub-package)
+# Discord integration and scheduler use relative imports by design (sub-packages)
 "src/pepper/integrations/discord/**/*.py" = ["TID252"]
+"src/pepper/scheduler/**/*.py" = ["TID252"]
 # Skills contain standalone scripts not part of the main package
 "src/pepper/skills/**/*.py" = ["D", "E501", "TID252", "ARG", "PL", "N", "C90"]
 

@@ -9,8 +9,7 @@ JOBS_YAML = (
     Path(__file__).parent.parent.parent
     / "src"
     / "pepper"
-    / "integrations"
-    / "discord"
+    / "scheduler"
     / "jobs.yaml"
 )
 
@@ -54,7 +53,7 @@ def test_jobs_yaml_required_fields():
 
 def test_load_seed_jobs():
     """load_seed_jobs returns parsed job definitions."""
-    from pepper.integrations.discord.scheduler import load_seed_jobs
+    from pepper.scheduler.core import load_seed_jobs
 
     # Arrange - use the real jobs.yaml path
     yaml_path = JOBS_YAML
@@ -74,12 +73,10 @@ async def test_execute_job_posts_to_channel():
     """Job execution POSTs to the channel server."""
     from unittest.mock import AsyncMock, patch
 
-    from pepper.integrations.discord.scheduler import execute_job
+    from pepper.scheduler.core import execute_job
 
     # Arrange - mock the HTTP client
-    with patch(
-        "pepper.integrations.discord.scheduler.httpx.AsyncClient"
-    ) as mock_client_cls:
+    with patch("pepper.scheduler.core.httpx.AsyncClient") as mock_client_cls:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)

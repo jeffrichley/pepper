@@ -27,7 +27,7 @@ def mock_scheduler():
 @pytest.mark.asyncio
 async def test_list_jobs(mock_scheduler):
     """List all scheduled jobs."""
-    from pepper.integrations.discord.scheduler_tools import list_jobs_impl
+    from pepper.scheduler.tools import list_jobs_impl
 
     # Arrange - mock scheduler is provided by fixture
 
@@ -42,7 +42,7 @@ async def test_list_jobs(mock_scheduler):
 @pytest.mark.asyncio
 async def test_create_job(mock_scheduler):
     """Create a new scheduled job."""
-    from pepper.integrations.discord.scheduler_tools import create_job_impl
+    from pepper.scheduler.tools import create_job_impl
 
     # Arrange - mock scheduler is provided by fixture
 
@@ -63,7 +63,7 @@ async def test_create_job(mock_scheduler):
 @pytest.mark.asyncio
 async def test_delete_job(mock_scheduler):
     """Delete an existing scheduled job."""
-    from pepper.integrations.discord.scheduler_tools import delete_job_impl
+    from pepper.scheduler.tools import delete_job_impl
 
     # Arrange - mock scheduler is provided by fixture
 
@@ -78,7 +78,7 @@ async def test_delete_job(mock_scheduler):
 @pytest.mark.asyncio
 async def test_pause_job(mock_scheduler):
     """Pause a scheduled job."""
-    from pepper.integrations.discord.scheduler_tools import pause_job_impl
+    from pepper.scheduler.tools import pause_job_impl
 
     # Arrange - mock scheduler is provided by fixture
 

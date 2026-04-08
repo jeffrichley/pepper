@@ -16,12 +16,6 @@ load_dotenv(INTEGRATION_DIR / ".env")
 
 DISCORD_BOT_TOKEN: str = os.environ.get("DISCORD_BOT_TOKEN", "")
 CHANNEL_URL: str = os.environ.get("PEPPER_CHANNEL_URL", "http://localhost:8788")
-SCHEDULER_DB: str = os.environ.get(
-    "PEPPER_SCHEDULER_DB",
-    str(Path.home() / ".pepper" / "scheduler.db"),
-)
-JOBS_YAML: Path = INTEGRATION_DIR / "jobs.yaml"
-TIMEZONE: str = os.environ.get("PEPPER_TIMEZONE", "US/Eastern")
 
 if not DISCORD_BOT_TOKEN:
     raise RuntimeError(
