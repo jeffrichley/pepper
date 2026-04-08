@@ -5,7 +5,7 @@
 > Arrows mean "must be done before". Batches are groups to implement together.
 
 ```mermaid
-flowchart TD
+flowchart LR
     classDef notstarted fill:#ff6b6b,stroke:#c92a2a,color:#fff
     classDef inprogress fill:#ffd43b,stroke:#e67700,color:#333
     classDef done fill:#69db7c,stroke:#2b8a3e,color:#333
@@ -37,6 +37,7 @@ flowchart TD
     end
 
     subgraph B5["Batch 5: Attachments"]
+        I38["#38 no auto-download"]:::done
         I23["#23 attachment security"]:::notstarted
         I25["#25 download_attachment"]:::notstarted
         I37["#37 attachment system"]:::notstarted
@@ -80,6 +81,7 @@ flowchart TD
     I19 --> I18
     I19 --> I24
     I35 --> I16
+    I38 --> I25
 ```
 
 ## Batch Execution Order
@@ -90,7 +92,7 @@ flowchart TD
 | **2. Message Flow** | #9, #12, #15 | Attachments (B5) |
 | **3. Rich Interactions** | #13, #22, #19, #16 | — |
 | **4. Power Features** | #17, #18, #26, #21 | Config (B6) |
-| **5. Attachments** | #23, #25, #37 | Message Flow (B2) |
+| **5. Attachments** | #38, #23, #25, #37 | Message Flow (B2) |
 | **6. Config + Guards** | #31, #32, #33 | Power Features (B4) |
 | **7. Superpowers** | #20, #24, #27, #28, #29, #30, #35 | — |
 | **Q. Quality** | #34, #36 | Core Tools (B1) |
@@ -128,3 +130,4 @@ Update this as issues close:
 - [ ] #35 — Components V2
 - [ ] #36 — coverage 80%
 - [ ] #37 — attachment system
+- [x] #38 — no auto-download
