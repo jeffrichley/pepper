@@ -398,6 +398,24 @@ async def keep_typing() -> None:
                 pending_chat_ids.pop(chat_id, None)
 
 
+_CLEANUP_INTERVAL_SECONDS = 6 * 3600  # Every 6 hours
+
+
+async def _periodic_attachment_cleanup() -> None:
+    """Run attachment cleanup on startup and every 6 hours."""
+    from pepper.attachments import cleanup_attachments  # noqa: PLC0415
+
+    while True:
+        try:
+            result = cleanup_attachments()
+            total = result["deleted_age"] + result["deleted_size"]
+            if total > 0:
+                log.info(f"Attachment cleanup: {result}")
+        except Exception as e:
+            log.error(f"Attachment cleanup failed: {e}")
+        await asyncio.sleep(_CLEANUP_INTERVAL_SECONDS)
+
+
 async def start_bot(token: str) -> None:
     """Start the Discord bot as an async task.
 
@@ -407,4 +425,5 @@ async def start_bot(token: str) -> None:
     log.info("Starting Discord bot...")
     asyncio.create_task(listen_for_replies())  # noqa: RUF006
     asyncio.create_task(keep_typing())  # noqa: RUF006
+    asyncio.create_task(_periodic_attachment_cleanup())  # noqa: RUF006
     await client.start(token)

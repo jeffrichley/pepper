@@ -62,7 +62,7 @@ def test_load_seed_jobs():
     jobs = load_seed_jobs(yaml_path)
 
     # Assert - verify correct number and content of jobs
-    assert len(jobs) == 4
+    assert len(jobs) == 3
     assert "heartbeat" in jobs
     assert jobs["heartbeat"]["trigger"] == "interval"
     assert jobs["heartbeat"]["schedule"]["minutes"] == 30

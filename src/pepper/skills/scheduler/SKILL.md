@@ -180,9 +180,10 @@ These are defined in `jobs.yaml` and auto-seeded on first run:
 | `heartbeat` | interval | 30 min | Review tasks, alert if anything needs attention |
 | `morning_briefing` | cron | 7:00 AM ET | Daily priorities and deadlines |
 | `nightly_reflection` | cron | 3:00 AM ET | Summarize the day's raw logs |
-| `attachment_cleanup` | cron | 4:00 AM ET | Clean old attachment files (function job) |
 
 Seed jobs are only created if they don't already exist. Modifying or deleting them via tools is permanent — they won't be re-seeded.
+
+Attachment cleanup runs inside the Discord bot process (every 6 hours), not via the scheduler.
 
 ## How it works under the hood
 
