@@ -1,6 +1,6 @@
 [project]
 name = "pepper"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Pepper Second Brain"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -25,6 +25,7 @@ dependencies = [
 pepper = "pepper.cli:app"
 pepper-channel = "pepper.channel.server:main"
 pepper-discord = "pepper.integrations.discord.mcp_server:run"
+pepper-scheduler = "pepper.scheduler.mcp_server:run"
 
 [dependency-groups]
 dev = [
@@ -45,6 +46,10 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "VERSION"
+pattern = "(?P<version>.+)"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pepper"]
@@ -93,9 +98,19 @@ convention = "google"
     "PLW1510",  # subprocess.run without check — tests verify return codes
     "E501",     # long assertion messages and fixture data
     "F841",     # unused variables in test setup
+    "PLR0913",  # test helpers with many kwargs
 ]
-# Discord integration uses relative imports by design (sub-package)
-"src/pepper/integrations/discord/**/*.py" = ["TID252"]
+# Discord integration uses relative imports and has discord.py patterns
+"src/pepper/integrations/discord/**/*.py" = [
+    "TID252",   # relative imports by design (sub-package)
+    "PLC0415",  # deferred imports to avoid circular/heavy imports at module level
+    "PLR0913",  # discord.py callbacks have many params
+    "PLR2004",  # HTTP status code comparisons
+    "ARG001",   # unused args required by discord.py (server in lifespan)
+    "ARG002",   # unused args required by discord.py (button in callbacks)
+    "RUF006",   # asyncio.create_task without storing ref (fire-and-forget tasks)
+]
+"src/pepper/scheduler/**/*.py" = ["TID252"]
 # Skills contain standalone scripts not part of the main package
 "src/pepper/skills/**/*.py" = ["D", "E501", "TID252", "ARG", "PL", "N", "C90"]
 

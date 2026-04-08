@@ -1,0 +1,132 @@
+# Pepper Discord Backlog — Dependency & Batch Map
+
+> **Legend:** 🔴 Not started | 🟡 In progress | 🟢 Done
+>
+> Arrows mean "must be done before". Batches are groups to implement together.
+
+```mermaid
+flowchart LR
+    classDef notstarted fill:#ff6b6b,stroke:#c92a2a,color:#fff
+    classDef inprogress fill:#ffd43b,stroke:#e67700,color:#333
+    classDef done fill:#69db7c,stroke:#2b8a3e,color:#333
+
+    subgraph B1["Batch 1: Core Tools"]
+        I10["#10 edit_message"]:::done
+        I11["#11 fetch_messages"]:::done
+        I14["#14 graceful shutdown"]:::done
+    end
+
+    subgraph B2["Batch 2: Message Flow"]
+        I9["#9 access control"]:::done
+        I12["#12 mention detection"]:::done
+        I15["#15 smart chunking"]:::done
+    end
+
+    subgraph B3["Batch 3: Rich Interactions"]
+        I13["#13 threading + reply-to"]:::done
+        I22["#22 progress embeds"]:::done
+        I19["#19 slash commands"]:::done
+        I16["#16 briefing dashboard"]:::done
+    end
+
+    subgraph B4["Batch 4: Power Features"]
+        I17["#17 project threads"]:::done
+        I18["#18 polls"]:::done
+        I26["#26 scheduled events"]:::done
+    end
+
+    subgraph B5["Batch 5: Attachments"]
+        I38["#38 no auto-download"]:::done
+        I23["#23 attachment security"]:::done
+        I25["#25 download_attachment"]:::done
+        I37["#37 attachment system"]:::done
+    end
+
+    subgraph B6["Batch 6: Config + Guards"]
+        I31["#31 ack reaction"]:::done
+        I32["#32 outbound gate"]:::done
+        I33["#33 reply-to mode"]:::done
+    end
+
+    subgraph B7["Batch 7: Superpowers"]
+        I20["#20 forum channel"]:::notstarted
+        I24["#24 modal forms"]:::notstarted
+        I27["#27 voice TTS"]:::notstarted
+        I28["#28 webhook personas"]:::notstarted
+        I29["#29 AutoMod"]:::notstarted
+        I30["#30 role-based access"]:::notstarted
+        I35["#35 Components V2"]:::notstarted
+    end
+
+    subgraph BQ["Independent: Quality"]
+        I34["#34 MyPy strict"]:::notstarted
+        I36["#36 coverage 80pct"]:::notstarted
+    end
+
+    %% Dependencies (arrow = "must complete before")
+    I10 --> I22
+    I10 --> I16
+    I11 --> I12
+    I13 --> I17
+    I13 --> I33
+    I9 --> I12
+    I9 --> I32
+    I9 --> I30
+    I22 --> I16
+    I19 --> I16
+    I15 --> I22
+    I23 --> I37
+    I25 --> I37
+    I19 --> I18
+    I19 --> I24
+    I35 --> I16
+    I38 --> I25
+```
+
+## Batch Execution Order
+
+| Batch | Issues | Can parallelize with |
+|-------|--------|---------------------|
+| **1. Core Tools** | #10, #11, #14 | Quality (BQ) |
+| **2. Message Flow** | #9, #12, #15 | Attachments (B5) |
+| **3. Rich Interactions** | #13, #22, #19, #16 | — |
+| **4. Power Features** | #17, #18, #26, #21 | Config (B6) |
+| **5. Attachments** | #38, #23, #25, #37 | Message Flow (B2) |
+| **6. Config + Guards** | #31, #32, #33 | Power Features (B4) |
+| **7. Superpowers** | #20, #24, #27, #28, #29, #30, #35 | — |
+| **Q. Quality** | #34, #36 | Core Tools (B1) |
+
+## Status Tracker
+
+Update this as issues close:
+
+- [x] #9 — access control
+- [x] #10 — edit_message
+- [x] #11 — fetch_messages
+- [x] #12 — mention detection
+- [x] #13 — threading + reply-to
+- [x] #14 — graceful shutdown
+- [x] #15 — smart chunking
+- [x] #16 — briefing dashboard
+- [x] #17 — project threads
+- [x] #18 — polls
+- [x] #19 — slash commands
+- [ ] #20 — forum channel
+- [x] ~#21 — permission relay (won't do)~
+- [x] #22 — progress embeds
+- [x] #23 — attachment security
+- [ ] #24 — modal forms
+- [x] #25 — download_attachment
+- [x] #26 — scheduled events
+- [ ] #27 — voice TTS
+- [ ] #28 — webhook personas
+- [ ] #29 — AutoMod
+- [ ] #30 — role-based access
+- [x] #31 — ack reaction
+- [x] #32 — outbound gate
+- [x] #33 — reply-to mode
+- [ ] #34 — MyPy strict
+- [ ] #35 — Components V2
+- [ ] #36 — coverage 80%
+- [x] #37 — attachment system
+- [x] #38 — no auto-download

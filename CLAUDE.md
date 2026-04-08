@@ -36,9 +36,15 @@ src/pepper/
 ├── channel/            # Channel MCP server (message router)
 │   ├── server.py       # Low-level MCP + HTTP server
 │   └── router.py       # Routing table with TTL
+├── scheduler/          # Scheduler MCP server (independent of Discord)
+│   ├── mcp_server.py   # FastMCP server with scheduler tools
+│   ├── core.py         # APScheduler setup, job execution
+│   ├── tools.py        # Tool implementations
+│   ├── config.py       # Scheduler-specific config
+│   └── jobs.yaml       # Default seed jobs
 ├── skills/             # Claude Code skills (installed by pepper init)
 └── integrations/
-    └── discord/        # Discord bot + scheduler MCP server
+    └── discord/        # Discord bot MCP server (messaging only)
 tests/                  # All tests (flat structure, Phase 2 will reorganize)
 ```
 
@@ -47,6 +53,7 @@ tests/                  # All tests (flat structure, Phase 2 will reorganize)
 - `pepper` -> `pepper.cli:app` — Main CLI
 - `pepper-channel` -> `pepper.channel.server:main` — Channel MCP server
 - `pepper-discord` -> `pepper.integrations.discord.mcp_server:run` — Discord MCP server
+- `pepper-scheduler` -> `pepper.scheduler.mcp_server:run` — Scheduler MCP server
 
 ## Dev vs Runtime
 
@@ -76,7 +83,7 @@ Always use `/ship` to create PRs. Never create PRs manually or through other ski
 - `pepper start` passes `--dangerously-load-development-channels server:pepper-channel` to Claude Code — required for channel notifications
 - Discord integration imports use relative imports (`.config`, `.bot`, etc.) — they're a sub-package, not standalone scripts
 - Hooks run as `python -m pepper.hooks.<name>` from the runtime directory — they find the vault via `PEPPER_VAULT_PATH` env var or default `~/.pepper/Memory`
-- The `jobs.yaml` scheduler supports two job types: prompt-based (posts to channel server) and function-based (`type: function` calls Python directly)
+- The scheduler runs as its own MCP server (`pepper-scheduler`), independent of Discord. `jobs.yaml` supports two job types: prompt-based (posts to channel server) and function-based (`type: function` calls Python directly)
 
 ## Skill routing
 

@@ -104,9 +104,10 @@ docs-serve:
 install:
     uv sync --all-groups
 
-# Install pre-commit hooks
+# Install pre-commit hooks (commit) and pre-push gate
 hooks:
     uv run pre-commit install
+    uv run pre-commit install --hook-type pre-push
 
 # Clean build artifacts and caches
 [unix]

@@ -10,6 +10,7 @@ This module is imported by mcp_server.py. Do not run directly.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -19,10 +20,11 @@ from typing import Any
 import discord
 import httpx
 
-from pepper.attachments import download_attachment
-
+from .access import gate, load_access
+from .chunking import smart_chunk
 from .config import CHANNEL_URL
 from .embeds import build_embed
+from .slash_commands import setup_commands
 
 # Type alias for channels that support send/fetch_message/typing/history
 Messageable = (
@@ -38,6 +40,13 @@ client = discord.Client(intents=intents)
 
 DISCORD_MSG_LIMIT = 2000
 _MAX_EMOJI_LEN = 2
+_MAX_RECENT_BOT_MESSAGES = 200
+
+# Access control config (loaded on startup)
+_access_config = load_access()
+
+# Track recent message IDs sent by the bot (for reply-to detection)
+_recent_bot_message_ids: set[int] = set()
 
 # Track pending messages so we can hold typing indicators
 # Stores (channel, timestamp) so we can expire stale entries
@@ -52,11 +61,24 @@ def make_chat_id(message: discord.Message) -> str:
     return f"discord-dm-{message.channel.id}-{message.id}"
 
 
+# Set up slash commands
+_command_tree = setup_commands(client, CHANNEL_URL, _access_config)
+
+
 @client.event
 async def on_ready() -> None:
-    """Register with the channel server on startup."""
+    """Register with the channel server and sync slash commands on startup."""
     assert client.user is not None
     log.info(f"Logged in as {client.user} (id: {client.user.id})")
+
+    # Sync slash commands with Discord
+    try:
+        synced = await _command_tree.sync()
+        log.info(f"Synced {len(synced)} slash commands")
+    except Exception as e:
+        log.error(f"Failed to sync slash commands: {e}")
+
+    # Register with channel server
     async with httpx.AsyncClient() as http:
         try:
             await http.post(
@@ -71,41 +93,32 @@ async def on_ready() -> None:
             log.warning("Channel server not reachable — will retry on first message")
 
 
-@client.event
-async def on_message(message: discord.Message) -> None:
-    """Forward Discord messages to the channel server."""
-    # Ignore our own messages
-    if message.author == client.user:
-        return
-
-    # Ignore bot messages
-    if message.author.bot:
-        return
-
-    chat_id = make_chat_id(message)
-    is_dm = message.guild is None
-
-    # Download attachments and build content/metadata
+def _collect_attachments(message: discord.Message) -> tuple[str, list[dict[str, Any]]]:
+    """Collect attachment metadata from a message without downloading."""
     content = message.content
-    attachment_infos = []
+    infos = []
     for att in message.attachments:
-        local_path = await download_attachment(
-            url=att.url,
-            filename=att.filename,
-            message_id=str(message.id),
+        infos.append(
+            {
+                "filename": att.filename,
+                "url": att.url,
+                "content_type": att.content_type or "unknown",
+                "size_bytes": att.size,
+            }
         )
-        if local_path:
-            attachment_infos.append(
-                {
-                    "filename": att.filename,
-                    "content_type": att.content_type or "unknown",
-                    "path": str(local_path),
-                    "size_bytes": local_path.stat().st_size,
-                }
-            )
-            content += f"\n[📎 {att.filename}]"
+        content += f"\n[📎 {att.filename}]"
+    return content, infos
 
-    metadata = {
+
+def _build_payload(
+    message: discord.Message,
+    chat_id: str,
+    content: str,
+    attachment_infos: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build the channel server payload from a Discord message."""
+    is_dm = message.guild is None
+    metadata: dict[str, Any] = {
         "guild_id": str(message.guild.id) if message.guild else "",
         "channel_id": str(message.channel.id),
         "message_id": str(message.id),
@@ -114,14 +127,33 @@ async def on_message(message: discord.Message) -> None:
     }
     if attachment_infos:
         metadata["attachments"] = json.dumps(attachment_infos)
-
-    payload = {
+    return {
         "source": "discord",
         "chat_id": chat_id,
         "sender": message.author.display_name,
         "content": content,
         "metadata": metadata,
     }
+
+
+@client.event
+async def on_message(message: discord.Message) -> None:
+    """Forward Discord messages to the channel server."""
+    if message.author == client.user or message.author.bot:
+        return
+
+    assert client.user is not None
+    if not gate(message, client.user, _access_config, _recent_bot_message_ids):
+        return
+
+    ack_emoji = _access_config.get("ackReaction", "")
+    if ack_emoji:
+        with contextlib.suppress(Exception):
+            await message.add_reaction(ack_emoji)
+
+    chat_id = make_chat_id(message)
+    content, attachment_infos = _collect_attachments(message)
+    payload = _build_payload(message, chat_id, content, attachment_infos)
 
     # Track the channel for typing indicator (with timestamp for expiry)
     pending_chat_ids[chat_id] = (message.channel, time.monotonic())
@@ -135,7 +167,7 @@ async def on_message(message: discord.Message) -> None:
                     json=payload,
                     timeout=10.0,
                 )
-                if resp.status_code != 200:  # noqa: PLR2004
+                if resp.status_code != 200:
                     log.error(f"Channel server error: {resp.status_code} {resp.text}")
         except httpx.ConnectError:
             log.error("Channel server unreachable")
@@ -247,32 +279,31 @@ def _prepare_file_attachments(metadata: dict[str, Any]) -> list[discord.File]:
     return files
 
 
+def _track_bot_message(message_id: int) -> None:
+    """Track a bot message ID for reply-to detection, capping the set."""
+    _recent_bot_message_ids.add(message_id)
+    while len(_recent_bot_message_ids) > _MAX_RECENT_BOT_MESSAGES:
+        _recent_bot_message_ids.pop()
+
+
 async def _send_text_reply(
     channel: Messageable,
     text: str,
     embed: discord.Embed | None,
     files: list[discord.File],
 ) -> None:
-    """Send a text reply, splitting into chunks if needed."""
+    """Send a text reply, splitting at natural boundaries if needed."""
     send_files = files if files else None
-    if len(text) <= DISCORD_MSG_LIMIT:
-        await channel.send(
-            text,
-            embed=embed,  # type: ignore[arg-type]
-            files=send_files,  # type: ignore[arg-type]
+    chunks = smart_chunk(text)
+
+    for i, chunk in enumerate(chunks):
+        is_last = i == len(chunks) - 1
+        msg = await channel.send(
+            chunk,
+            embed=embed if is_last else None,  # type: ignore[arg-type]
+            files=send_files if is_last else None,  # type: ignore[arg-type]
         )
-    else:
-        chunks = [
-            text[i : i + DISCORD_MSG_LIMIT]
-            for i in range(0, len(text), DISCORD_MSG_LIMIT)
-        ]
-        for i, chunk in enumerate(chunks):
-            is_last = i == len(chunks) - 1
-            await channel.send(
-                chunk,
-                embed=embed if is_last else None,  # type: ignore[arg-type]
-                files=send_files if is_last else None,  # type: ignore[arg-type]
-            )
+        _track_bot_message(msg.id)
 
 
 async def _send_embed_or_files(
@@ -281,12 +312,15 @@ async def _send_embed_or_files(
     files: list[discord.File],
 ) -> None:
     """Send an embed and/or file attachments without text content."""
+    msg: discord.Message | None = None
     if embed and files:
-        await channel.send("", embed=embed, files=files)
+        msg = await channel.send("", embed=embed, files=files)
     elif embed:
-        await channel.send(embed=embed)
+        msg = await channel.send(embed=embed)
     elif files:
-        await channel.send("", files=files)
+        msg = await channel.send("", files=files)
+    if msg is not None:
+        _track_bot_message(msg.id)
 
 
 async def handle_reply(data: dict[str, Any]) -> None:
@@ -369,6 +403,24 @@ async def keep_typing() -> None:
                 pending_chat_ids.pop(chat_id, None)
 
 
+_CLEANUP_INTERVAL_SECONDS = 6 * 3600  # Every 6 hours
+
+
+async def _periodic_attachment_cleanup() -> None:
+    """Run attachment cleanup on startup and every 6 hours."""
+    from pepper.attachments import cleanup_attachments
+
+    while True:
+        try:
+            result = cleanup_attachments()
+            total = result["deleted_age"] + result["deleted_size"]
+            if total > 0:
+                log.info(f"Attachment cleanup: {result}")
+        except Exception as e:
+            log.error(f"Attachment cleanup failed: {e}")
+        await asyncio.sleep(_CLEANUP_INTERVAL_SECONDS)
+
+
 async def start_bot(token: str) -> None:
     """Start the Discord bot as an async task.
 
@@ -376,6 +428,7 @@ async def start_bot(token: str) -> None:
     which is the async version of client.run().
     """
     log.info("Starting Discord bot...")
-    asyncio.create_task(listen_for_replies())  # noqa: RUF006
-    asyncio.create_task(keep_typing())  # noqa: RUF006
+    asyncio.create_task(listen_for_replies())
+    asyncio.create_task(keep_typing())
+    asyncio.create_task(_periodic_attachment_cleanup())
     await client.start(token)

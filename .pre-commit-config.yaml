@@ -36,12 +36,13 @@ repos:
     hooks:
       - id: yesqa
 
-  # --- Type checking (uncomment if pre-commit speed is acceptable) ---
-  # - repo: local
-  #   hooks:
-  #     - id: mypy
-  #       name: mypy
-  #       entry: uv run mypy src
-  #       language: system
-  #       types: [python]
-  #       pass_filenames: false
+  # --- Pre-push: full quality gate ---
+  - repo: local
+    hooks:
+      - id: gate
+        name: quality gate
+        entry: just gate
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

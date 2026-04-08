@@ -6,12 +6,7 @@ import pytest
 import yaml
 
 JOBS_YAML = (
-    Path(__file__).parent.parent.parent
-    / "src"
-    / "pepper"
-    / "integrations"
-    / "discord"
-    / "jobs.yaml"
+    Path(__file__).parent.parent.parent / "src" / "pepper" / "scheduler" / "jobs.yaml"
 )
 
 
@@ -47,14 +42,16 @@ def test_jobs_yaml_required_fields():
             assert "function" in job, f"Function job {name} missing function"
         else:
             assert "prompt" in job, f"Job {name} missing prompt"
-        assert job["trigger"] in ("interval", "cron", "once"), (
-            f"Job {name} has invalid trigger"
-        )
+        assert job["trigger"] in (
+            "interval",
+            "cron",
+            "once",
+        ), f"Job {name} has invalid trigger"
 
 
 def test_load_seed_jobs():
     """load_seed_jobs returns parsed job definitions."""
-    from pepper.integrations.discord.scheduler import load_seed_jobs
+    from pepper.scheduler.core import load_seed_jobs
 
     # Arrange - use the real jobs.yaml path
     yaml_path = JOBS_YAML
@@ -63,7 +60,7 @@ def test_load_seed_jobs():
     jobs = load_seed_jobs(yaml_path)
 
     # Assert - verify correct number and content of jobs
-    assert len(jobs) == 4
+    assert len(jobs) == 3
     assert "heartbeat" in jobs
     assert jobs["heartbeat"]["trigger"] == "interval"
     assert jobs["heartbeat"]["schedule"]["minutes"] == 30
@@ -74,12 +71,10 @@ async def test_execute_job_posts_to_channel():
     """Job execution POSTs to the channel server."""
     from unittest.mock import AsyncMock, patch
 
-    from pepper.integrations.discord.scheduler import execute_job
+    from pepper.scheduler.core import execute_job
 
     # Arrange - mock the HTTP client
-    with patch(
-        "pepper.integrations.discord.scheduler.httpx.AsyncClient"
-    ) as mock_client_cls:
+    with patch("pepper.scheduler.core.httpx.AsyncClient") as mock_client_cls:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
