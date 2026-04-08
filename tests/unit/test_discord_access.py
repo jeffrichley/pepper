@@ -18,7 +18,7 @@ def access_file(tmp_path):
     return _write
 
 
-def _make_message(  # noqa: PLR0913
+def _make_message(
     *,
     author_id: int = 100,
     is_bot: bool = False,
@@ -241,7 +241,9 @@ def test_gate_guild_reply_to_bot():
         "mentionPatterns": [],
     }
     msg = _make_message(
-        guild_id=999, channel_id=123, reference_message_id=555,
+        guild_id=999,
+        channel_id=123,
+        reference_message_id=555,
     )
     recent_ids = {555}
 
@@ -263,7 +265,9 @@ def test_gate_guild_custom_pattern():
         "mentionPatterns": ["hey pepper"],
     }
     msg = _make_message(
-        guild_id=999, channel_id=123, content="hey pepper, what's up?",
+        guild_id=999,
+        channel_id=123,
+        content="hey pepper, what's up?",
     )
 
     # Act

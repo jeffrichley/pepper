@@ -13,7 +13,9 @@ def test_setup_commands_registers_four():
 
     # Arrange — patch CommandTree to avoid discord.py's singleton check
     with patch.object(
-        app_commands, "CommandTree", wraps=app_commands.CommandTree,
+        app_commands,
+        "CommandTree",
+        wraps=app_commands.CommandTree,
     ) as mock_tree_cls:
         mock_client = MagicMock()
         mock_client.http = MagicMock()
@@ -30,6 +32,7 @@ def test_setup_commands_registers_four():
                 cmd.name = name
                 mock_commands.append(cmd)
                 return func
+
             return decorator
 
         mock_tree.command = _command
@@ -112,7 +115,9 @@ async def test_send_prompt_posts_to_channel():
 
         # Act
         await _send_prompt(
-            "http://localhost:8788", interaction, "Test prompt",
+            "http://localhost:8788",
+            interaction,
+            "Test prompt",
         )
 
         # Assert

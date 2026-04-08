@@ -93,36 +93,12 @@ async def on_ready() -> None:
             log.warning("Channel server not reachable — will retry on first message")
 
 
-@client.event
-async def on_message(message: discord.Message) -> None:
-    """Forward Discord messages to the channel server."""
-    # Ignore our own messages
-    if message.author == client.user:
-        return
-
-    # Ignore bot messages
-    if message.author.bot:
-        return
-
-    # Access control gate
-    assert client.user is not None
-    if not gate(message, client.user, _access_config, _recent_bot_message_ids):
-        return
-
-    # Acknowledgment reaction (configurable, can be disabled)
-    ack_emoji = _access_config.get("ackReaction", "")
-    if ack_emoji:
-        with contextlib.suppress(Exception):
-            await message.add_reaction(ack_emoji)
-
-    chat_id = make_chat_id(message)
-    is_dm = message.guild is None
-
-    # Collect attachment metadata (no download — use download_attachment tool)
+def _collect_attachments(message: discord.Message) -> tuple[str, list[dict[str, Any]]]:
+    """Collect attachment metadata from a message without downloading."""
     content = message.content
-    attachment_infos = []
+    infos = []
     for att in message.attachments:
-        attachment_infos.append(
+        infos.append(
             {
                 "filename": att.filename,
                 "url": att.url,
@@ -131,8 +107,18 @@ async def on_message(message: discord.Message) -> None:
             }
         )
         content += f"\n[📎 {att.filename}]"
+    return content, infos
 
-    metadata = {
+
+def _build_payload(
+    message: discord.Message,
+    chat_id: str,
+    content: str,
+    attachment_infos: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build the channel server payload from a Discord message."""
+    is_dm = message.guild is None
+    metadata: dict[str, Any] = {
         "guild_id": str(message.guild.id) if message.guild else "",
         "channel_id": str(message.channel.id),
         "message_id": str(message.id),
@@ -141,14 +127,33 @@ async def on_message(message: discord.Message) -> None:
     }
     if attachment_infos:
         metadata["attachments"] = json.dumps(attachment_infos)
-
-    payload = {
+    return {
         "source": "discord",
         "chat_id": chat_id,
         "sender": message.author.display_name,
         "content": content,
         "metadata": metadata,
     }
+
+
+@client.event
+async def on_message(message: discord.Message) -> None:
+    """Forward Discord messages to the channel server."""
+    if message.author == client.user or message.author.bot:
+        return
+
+    assert client.user is not None
+    if not gate(message, client.user, _access_config, _recent_bot_message_ids):
+        return
+
+    ack_emoji = _access_config.get("ackReaction", "")
+    if ack_emoji:
+        with contextlib.suppress(Exception):
+            await message.add_reaction(ack_emoji)
+
+    chat_id = make_chat_id(message)
+    content, attachment_infos = _collect_attachments(message)
+    payload = _build_payload(message, chat_id, content, attachment_infos)
 
     # Track the channel for typing indicator (with timestamp for expiry)
     pending_chat_ids[chat_id] = (message.channel, time.monotonic())
@@ -162,7 +167,7 @@ async def on_message(message: discord.Message) -> None:
                     json=payload,
                     timeout=10.0,
                 )
-                if resp.status_code != 200:  # noqa: PLR2004
+                if resp.status_code != 200:
                     log.error(f"Channel server error: {resp.status_code} {resp.text}")
         except httpx.ConnectError:
             log.error("Channel server unreachable")
@@ -403,7 +408,7 @@ _CLEANUP_INTERVAL_SECONDS = 6 * 3600  # Every 6 hours
 
 async def _periodic_attachment_cleanup() -> None:
     """Run attachment cleanup on startup and every 6 hours."""
-    from pepper.attachments import cleanup_attachments  # noqa: PLC0415
+    from pepper.attachments import cleanup_attachments
 
     while True:
         try:
@@ -423,7 +428,7 @@ async def start_bot(token: str) -> None:
     which is the async version of client.run().
     """
     log.info("Starting Discord bot...")
-    asyncio.create_task(listen_for_replies())  # noqa: RUF006
-    asyncio.create_task(keep_typing())  # noqa: RUF006
-    asyncio.create_task(_periodic_attachment_cleanup())  # noqa: RUF006
+    asyncio.create_task(listen_for_replies())
+    asyncio.create_task(keep_typing())
+    asyncio.create_task(_periodic_attachment_cleanup())
     await client.start(token)

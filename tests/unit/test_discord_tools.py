@@ -51,7 +51,10 @@ async def test_send_discord_message(mock_client):
 
     # Assert - verify the message was sent correctly
     channel.send.assert_called_once_with(
-        "Hello!", embed=None, files=[], reference=None,
+        "Hello!",
+        embed=None,
+        files=[],
+        reference=None,
     )
     assert result["status"] == "sent"
     assert result["message_id"] == "777888"
@@ -66,7 +69,10 @@ async def test_send_discord_message_with_reply_to(mock_client):
 
     # Act - send with reply_to
     result = await send_discord_message_impl(
-        client, "123456", text="Reply!", reply_to="555",
+        client,
+        "123456",
+        text="Reply!",
+        reply_to="555",
     )
 
     # Assert - reference is set

@@ -28,7 +28,8 @@ def setup_commands(
     async def brief(interaction: discord.Interaction) -> None:
         if not _check_access(interaction):
             await interaction.response.send_message(
-                "You don't have access to Pepper.", ephemeral=True,
+                "You don't have access to Pepper.",
+                ephemeral=True,
             )
             return
         await interaction.response.defer()
@@ -45,7 +46,8 @@ def setup_commands(
     async def tasks(interaction: discord.Interaction) -> None:
         if not _check_access(interaction):
             await interaction.response.send_message(
-                "You don't have access to Pepper.", ephemeral=True,
+                "You don't have access to Pepper.",
+                ephemeral=True,
             )
             return
         await interaction.response.defer()
@@ -61,7 +63,8 @@ def setup_commands(
     async def focus(interaction: discord.Interaction) -> None:
         if not _check_access(interaction):
             await interaction.response.send_message(
-                "You don't have access to Pepper.", ephemeral=True,
+                "You don't have access to Pepper.",
+                ephemeral=True,
             )
             return
         await interaction.response.defer()
@@ -84,7 +87,8 @@ def setup_commands(
     ) -> None:
         if not _check_access(interaction):
             await interaction.response.send_message(
-                "You don't have access to Pepper.", ephemeral=True,
+                "You don't have access to Pepper.",
+                ephemeral=True,
             )
             return
         await interaction.response.defer()
@@ -113,7 +117,7 @@ async def _send_prompt(
     prompt: str,
 ) -> None:
     """Send a prompt to the channel server on behalf of a slash command."""
-    import httpx  # noqa: PLC0415  # deferred to avoid import at module level
+    import httpx  # deferred to avoid import at module level
 
     chat_id = (
         f"discord-{interaction.guild_id or 'dm'}"
@@ -144,7 +148,7 @@ async def _send_prompt(
                 json=payload,
                 timeout=10.0,
             )
-            if resp.status_code != 200:  # noqa: PLR2004
+            if resp.status_code != 200:
                 log.error(
                     f"Slash command failed: {resp.status_code} {resp.text}",
                 )

@@ -145,7 +145,30 @@ async def _download_url_to_file(
         return None
 
 
-async def send_discord_message_impl(  # noqa: PLR0913
+async def _send_chunked(
+    channel: Messageable,
+    text: str,
+    embed: discord.Embed | None,
+    files: list[discord.File],
+    reference: discord.MessageReference | None,
+) -> discord.Message:
+    """Send text in smart chunks, returning the last message sent."""
+    chunks = smart_chunk(text)
+    sent: discord.Message | None = None
+    for i, chunk in enumerate(chunks):
+        is_first = i == 0
+        is_last = i == len(chunks) - 1
+        sent = await channel.send(
+            chunk,
+            embed=embed if is_last else None,  # type: ignore[arg-type]
+            files=files if is_first else None,  # type: ignore[arg-type]
+            reference=reference if is_first else None,  # type: ignore[arg-type]
+        )
+    assert sent is not None
+    return sent
+
+
+async def send_discord_message_impl(
     client: discord.Client,
     channel_id: str,
     text: str = "",
@@ -160,33 +183,21 @@ async def send_discord_message_impl(  # noqa: PLR0913
 
     discord_embed = build_embed(embed)
     discord_files = await _prepare_files(files)
+    reference = _build_reference(reply_to, channel_id)
 
-    # Build message reference for reply threading
-    reference = None
-    if reply_to:
-        reference = discord.MessageReference(
-            message_id=int(reply_to),
-            channel_id=int(channel_id),
-            fail_if_not_exists=False,
-        )
-
-    sent_message: discord.Message | None = None
     if text:
-        chunks = smart_chunk(text)
-        for i, chunk in enumerate(chunks):
-            is_first = i == 0
-            is_last = i == len(chunks) - 1
-            sent_message = await channel.send(  # type: ignore[arg-type]
-                chunk,
-                embed=discord_embed if is_last else None,
-                files=discord_files if is_first else None,
-                reference=reference if is_first else None,
-            )
+        sent = await _send_chunked(
+            channel,
+            text,
+            discord_embed,
+            discord_files,
+            reference,
+        )
     elif discord_embed or discord_files:
-        sent_message = await channel.send(  # type: ignore[arg-type]
-            embed=discord_embed,
-            files=discord_files or None,
-            reference=reference,
+        sent = await channel.send(
+            embed=discord_embed,  # type: ignore[arg-type]
+            files=discord_files or None,  # type: ignore[arg-type]
+            reference=reference,  # type: ignore[arg-type]
         )
     else:
         return {
@@ -194,10 +205,21 @@ async def send_discord_message_impl(  # noqa: PLR0913
             "message": "Either text, embed, or files is required",
         }
 
-    result: dict[str, str] = {"status": "sent", "channel_id": channel_id}
-    if sent_message is not None:
-        result["message_id"] = str(sent_message.id)
-    return result
+    return {"status": "sent", "channel_id": channel_id, "message_id": str(sent.id)}
+
+
+def _build_reference(
+    reply_to: str | None,
+    channel_id: str,
+) -> discord.MessageReference | None:
+    """Build a MessageReference for reply threading, or None."""
+    if not reply_to:
+        return None
+    return discord.MessageReference(
+        message_id=int(reply_to),
+        channel_id=int(channel_id),
+        fail_if_not_exists=False,
+    )
 
 
 async def edit_message_impl(
@@ -225,7 +247,10 @@ async def edit_message_impl(
         return {"status": "error", "message": "Can only edit bot's own messages"}
 
     discord_embed = build_embed(embed)
-    await message.edit(content=text or None, embed=discord_embed)  # type: ignore[arg-type]
+    await message.edit(
+        content=text or None,
+        embed=discord_embed,
+    )
     return {"status": "edited", "message_id": message_id}
 
 
@@ -285,7 +310,7 @@ async def list_channels_impl(
                 "guild_name": guild.name,
             }
             for channel in guild.channels
-            if isinstance(channel, (discord.TextChannel, discord.ForumChannel))
+            if isinstance(channel, discord.TextChannel | discord.ForumChannel)
         )
     return channels
 
@@ -346,7 +371,7 @@ async def get_channel_info_impl(
     return info
 
 
-async def create_scheduled_event_impl(  # noqa: PLR0913
+async def create_scheduled_event_impl(
     client: discord.Client,
     guild_id: str,
     name: str,
@@ -360,7 +385,7 @@ async def create_scheduled_event_impl(  # noqa: PLR0913
     Uses external entity type (not voice channel). Start and end times
     are ISO 8601 strings.
     """
-    from datetime import UTC, datetime  # noqa: PLC0415
+    from datetime import UTC, datetime
 
     guild = client.get_guild(int(guild_id))
     if guild is None:
@@ -371,13 +396,11 @@ async def create_scheduled_event_impl(  # noqa: PLR0913
         end_dt = datetime.fromisoformat(end_time)
         # Convert tz-aware strings properly, assume UTC for naive
         start = (
-            start_dt.astimezone(UTC) if start_dt.tzinfo
+            start_dt.astimezone(UTC)
+            if start_dt.tzinfo
             else start_dt.replace(tzinfo=UTC)
         )
-        end = (
-            end_dt.astimezone(UTC) if end_dt.tzinfo
-            else end_dt.replace(tzinfo=UTC)
-        )
+        end = end_dt.astimezone(UTC) if end_dt.tzinfo else end_dt.replace(tzinfo=UTC)
     except ValueError as e:
         return {"status": "error", "message": f"Invalid datetime: {e}"}
 
@@ -450,7 +473,7 @@ async def create_poll_impl(
 
     Uses Discord's native poll feature. Results are visible to all.
     """
-    from datetime import timedelta  # noqa: PLC0415
+    from datetime import timedelta
 
     channel = await _get_messageable(client, channel_id)
     if channel is None:
@@ -492,22 +515,22 @@ async def create_thread_impl(
         }
 
     # Clamp to Discord's allowed values: 60, 1440, 4320, 10080
-    allowed = [60, 1440, 4320, 10080]
-    archive = min(allowed, key=lambda x: abs(x - auto_archive_minutes))
+    allowed: list[int] = [60, 1440, 4320, 10080]
+    archive: int = min(allowed, key=lambda x: abs(x - auto_archive_minutes))
 
     if message_id:
         try:
             message = await channel.fetch_message(int(message_id))
             thread = await message.create_thread(
                 name=name,
-                auto_archive_duration=archive,
+                auto_archive_duration=archive,  # type: ignore[arg-type]
             )
         except discord.NotFound:
             return {"status": "error", "message": f"Message {message_id} not found"}
     else:
         thread = await channel.create_thread(
             name=name,
-            auto_archive_duration=archive,
+            auto_archive_duration=archive,  # type: ignore[arg-type]
             type=discord.ChannelType.public_thread,
         )
 
@@ -576,12 +599,14 @@ async def download_attachments_impl(
             message_id=message_id,
         )
         if local_path:
-            downloaded.append({
-                "filename": att.filename,
-                "path": str(local_path),
-                "content_type": att.content_type or "unknown",
-                "size_bytes": local_path.stat().st_size,
-            })
+            downloaded.append(
+                {
+                    "filename": att.filename,
+                    "path": str(local_path),
+                    "content_type": att.content_type or "unknown",
+                    "size_bytes": local_path.stat().st_size,
+                }
+            )
 
     return {
         "status": "ok",

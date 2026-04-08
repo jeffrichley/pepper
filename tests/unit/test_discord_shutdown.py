@@ -32,9 +32,7 @@ async def test_lifespan_calls_client_close():
             "pepper.integrations.discord.mcp_server.start_bot",
             new_callable=AsyncMock,
         ),
-        patch(
-            "pepper.integrations.discord.mcp_server.client"
-        ) as mock_client,
+        patch("pepper.integrations.discord.mcp_server.client") as mock_client,
         patch(
             "pepper.integrations.discord.mcp_server._watch_stdin",
             new_callable=AsyncMock,

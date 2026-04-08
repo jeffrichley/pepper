@@ -35,7 +35,7 @@ class BriefingView(ui.View):
     async def tasks_button(
         self,
         interaction: discord.Interaction,
-        button: ui.Button[BriefingView],  # noqa: ARG002
+        button: ui.Button[BriefingView],
     ) -> None:
         """Expand the tasks section."""
         await self._handle_button(
@@ -46,12 +46,14 @@ class BriefingView(ui.View):
         )
 
     @ui.button(
-        label="Calendar", emoji="\U0001f4c5", style=discord.ButtonStyle.primary,
+        label="Calendar",
+        emoji="\U0001f4c5",
+        style=discord.ButtonStyle.primary,
     )
     async def calendar_button(
         self,
         interaction: discord.Interaction,
-        button: ui.Button[BriefingView],  # noqa: ARG002
+        button: ui.Button[BriefingView],
     ) -> None:
         """Expand the calendar section."""
         await self._handle_button(
@@ -62,12 +64,14 @@ class BriefingView(ui.View):
         )
 
     @ui.button(
-        label="Priorities", emoji="\U0001f525", style=discord.ButtonStyle.primary,
+        label="Priorities",
+        emoji="\U0001f525",
+        style=discord.ButtonStyle.primary,
     )
     async def priorities_button(
         self,
         interaction: discord.Interaction,
-        button: ui.Button[BriefingView],  # noqa: ARG002
+        button: ui.Button[BriefingView],
     ) -> None:
         """Expand the priorities section."""
         await self._handle_button(
@@ -78,12 +82,14 @@ class BriefingView(ui.View):
         )
 
     @ui.button(
-        label="Projects", emoji="\U0001f4ca", style=discord.ButtonStyle.primary,
+        label="Projects",
+        emoji="\U0001f4ca",
+        style=discord.ButtonStyle.primary,
     )
     async def projects_button(
         self,
         interaction: discord.Interaction,
-        button: ui.Button[BriefingView],  # noqa: ARG002
+        button: ui.Button[BriefingView],
     ) -> None:
         """Expand the projects section."""
         await self._handle_button(
@@ -115,7 +121,7 @@ async def _post_prompt(
     prompt: str,
 ) -> None:
     """POST a prompt to the channel server."""
-    import httpx  # noqa: PLC0415
+    import httpx
 
     chat_id = f"discord-briefing-{channel_id}-{int(time.time())}"
 

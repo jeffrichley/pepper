@@ -59,7 +59,7 @@ async def _watch_stdin(shutdown_event: asyncio.Event) -> None:
 
 
 @asynccontextmanager
-async def lifespan(server: FastMCP) -> AsyncIterator[None]:  # noqa: ARG001
+async def lifespan(server: FastMCP) -> AsyncIterator[None]:
     """Start Discord bot on MCP server startup with graceful shutdown."""
     log.info("Starting Pepper Discord integration...")
 
@@ -125,7 +125,12 @@ async def send_discord_message(
         reply_to: Message ID to reply to (creates a quote-reply thread).
     """
     return await send_discord_message_impl(
-        client, channel_id, text, embed, files, reply_to,
+        client,
+        channel_id,
+        text,
+        embed,
+        files,
+        reply_to,
     )
 
 
@@ -233,12 +238,16 @@ async def create_poll(
         duration_hours: How long the poll runs (1-336 hours, default 1).
     """
     return await create_poll_impl(
-        client, channel_id, question, answers, duration_hours,
+        client,
+        channel_id,
+        question,
+        answers,
+        duration_hours,
     )
 
 
 @mcp.tool()
-async def create_scheduled_event(  # noqa: PLR0913
+async def create_scheduled_event(
     guild_id: str,
     name: str,
     start_time: str,
@@ -260,7 +269,13 @@ async def create_scheduled_event(  # noqa: PLR0913
         location: Event location (room, link, etc.).
     """
     return await create_scheduled_event_impl(
-        client, guild_id, name, start_time, end_time, description, location,
+        client,
+        guild_id,
+        name,
+        start_time,
+        end_time,
+        description,
+        location,
     )
 
 
@@ -309,7 +324,11 @@ async def create_thread(
         auto_archive_minutes: Inactivity before auto-archive (60, 1440, 4320, 10080).
     """
     return await create_thread_impl(
-        client, channel_id, name, message_id, auto_archive_minutes,
+        client,
+        channel_id,
+        name,
+        message_id,
+        auto_archive_minutes,
     )
 
 
@@ -331,7 +350,11 @@ async def send_briefing(
         embed: Rich embed with the briefing overview.
     """
     return await send_briefing_impl(
-        client, channel_id, CHANNEL_URL, summary, embed,
+        client,
+        channel_id,
+        CHANNEL_URL,
+        summary,
+        embed,
     )
 
 

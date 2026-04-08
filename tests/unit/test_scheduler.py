@@ -6,11 +6,7 @@ import pytest
 import yaml
 
 JOBS_YAML = (
-    Path(__file__).parent.parent.parent
-    / "src"
-    / "pepper"
-    / "scheduler"
-    / "jobs.yaml"
+    Path(__file__).parent.parent.parent / "src" / "pepper" / "scheduler" / "jobs.yaml"
 )
 
 
@@ -46,9 +42,11 @@ def test_jobs_yaml_required_fields():
             assert "function" in job, f"Function job {name} missing function"
         else:
             assert "prompt" in job, f"Job {name} missing prompt"
-        assert job["trigger"] in ("interval", "cron", "once"), (
-            f"Job {name} has invalid trigger"
-        )
+        assert job["trigger"] in (
+            "interval",
+            "cron",
+            "once",
+        ), f"Job {name} has invalid trigger"
 
 
 def test_load_seed_jobs():
