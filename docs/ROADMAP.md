@@ -33,14 +33,13 @@ flowchart LR
         I17["#17 project threads"]:::done
         I18["#18 polls"]:::done
         I26["#26 scheduled events"]:::done
-        I21["#21 permission relay"]:::notstarted
     end
 
     subgraph B5["Batch 5: Attachments"]
         I38["#38 no auto-download"]:::done
         I23["#23 attachment security"]:::done
         I25["#25 download_attachment"]:::done
-        I37["#37 attachment system"]:::notstarted
+        I37["#37 attachment system"]:::done
     end
 
     subgraph B6["Batch 6: Config + Guards"]
@@ -113,7 +112,7 @@ Update this as issues close:
 - [x] #18 — polls
 - [x] #19 — slash commands
 - [ ] #20 — forum channel
-- [ ] #21 — permission relay
+- [x] ~#21 — permission relay (won't do)~
 - [x] #22 — progress embeds
 - [x] #23 — attachment security
 - [ ] #24 — modal forms
@@ -129,5 +128,5 @@ Update this as issues close:
 - [ ] #34 — MyPy strict
 - [ ] #35 — Components V2
 - [ ] #36 — coverage 80%
-- [ ] #37 — attachment system
+- [x] #37 — attachment system
 - [x] #38 — no auto-download
