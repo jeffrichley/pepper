@@ -23,6 +23,7 @@ from .access import gate, load_access
 from .chunking import smart_chunk
 from .config import CHANNEL_URL
 from .embeds import build_embed
+from .slash_commands import setup_commands
 
 # Type alias for channels that support send/fetch_message/typing/history
 Messageable = (
@@ -59,11 +60,24 @@ def make_chat_id(message: discord.Message) -> str:
     return f"discord-dm-{message.channel.id}-{message.id}"
 
 
+# Set up slash commands
+_command_tree = setup_commands(client, CHANNEL_URL)
+
+
 @client.event
 async def on_ready() -> None:
-    """Register with the channel server on startup."""
+    """Register with the channel server and sync slash commands on startup."""
     assert client.user is not None
     log.info(f"Logged in as {client.user} (id: {client.user.id})")
+
+    # Sync slash commands with Discord
+    try:
+        synced = await _command_tree.sync()
+        log.info(f"Synced {len(synced)} slash commands")
+    except Exception as e:
+        log.error(f"Failed to sync slash commands: {e}")
+
+    # Register with channel server
     async with httpx.AsyncClient() as http:
         try:
             await http.post(
