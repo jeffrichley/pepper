@@ -75,16 +75,31 @@ async def _get_messageable(
     client: discord.Client,
     channel_id: str,
 ) -> Messageable | None:
-    """Resolve a channel ID to a messageable channel, or None."""
-    channel = client.get_channel(int(channel_id))
+    """Resolve a channel or user ID to a messageable channel.
+
+    Tries channel lookup first. If that fails, tries as a user ID
+    and creates a DM channel (for proactive DMs).
+    """
+    cid = int(channel_id)
+
+    # Try channel cache and API
+    channel = client.get_channel(cid)
     if channel is None:
         try:
-            channel = await client.fetch_channel(int(channel_id))
+            channel = await client.fetch_channel(cid)
         except Exception:
-            return None
-    if not isinstance(channel, Messageable):
+            channel = None
+
+    if isinstance(channel, Messageable):
+        return channel
+
+    # Fall back: try as a user ID and create DM
+    try:
+        user = await client.fetch_user(cid)
+        dm = user.dm_channel or await user.create_dm()
+        return dm
+    except Exception:
         return None
-    return channel
 
 
 def _validate_file_path(path: pathlib.Path) -> str | None:
