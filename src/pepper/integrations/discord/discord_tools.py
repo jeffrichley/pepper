@@ -126,6 +126,7 @@ async def send_discord_message_impl(
     discord_embed = build_embed(embed)
     discord_files = await _prepare_files(files)
 
+    sent_message: discord.Message | None = None
     if text and len(text) > DISCORD_MSG_LIMIT:
         chunks = [
             text[i : i + DISCORD_MSG_LIMIT]
@@ -133,22 +134,54 @@ async def send_discord_message_impl(
         ]
         for i, chunk in enumerate(chunks):
             is_last = i == len(chunks) - 1
-            await channel.send(  # type: ignore[arg-type]
+            sent_message = await channel.send(  # type: ignore[arg-type]
                 chunk,
                 embed=discord_embed if is_last else None,
                 files=discord_files if is_last else None,
             )
     elif text:
-        await channel.send(text, embed=discord_embed, files=discord_files or None)  # type: ignore[arg-type]
+        sent_message = await channel.send(text, embed=discord_embed, files=discord_files or None)  # type: ignore[arg-type]
     elif discord_embed or discord_files:
-        await channel.send(embed=discord_embed, files=discord_files or None)  # type: ignore[arg-type]
+        sent_message = await channel.send(embed=discord_embed, files=discord_files or None)  # type: ignore[arg-type]
     else:
         return {
             "status": "error",
             "message": "Either text, embed, or files is required",
         }
 
-    return {"status": "sent", "channel_id": channel_id}
+    result: dict[str, str] = {"status": "sent", "channel_id": channel_id}
+    if sent_message is not None:
+        result["message_id"] = str(sent_message.id)
+    return result
+
+
+async def edit_message_impl(
+    client: discord.Client,
+    channel_id: str,
+    message_id: str,
+    text: str = "",
+    embed: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    """Edit a previously sent bot message.
+
+    Only works on messages the bot itself sent (Discord enforces this).
+    Edits don't trigger push notifications.
+    """
+    channel = await _get_messageable(client, channel_id)
+    if channel is None:
+        return {"status": "error", "message": f"Channel {channel_id} not found"}
+
+    try:
+        message = await channel.fetch_message(int(message_id))
+    except discord.NotFound:
+        return {"status": "error", "message": f"Message {message_id} not found"}
+
+    if message.author != client.user:
+        return {"status": "error", "message": "Can only edit bot's own messages"}
+
+    discord_embed = build_embed(embed)
+    await message.edit(content=text or None, embed=discord_embed)  # type: ignore[arg-type]
+    return {"status": "edited", "message_id": message_id}
 
 
 async def add_reaction_impl(

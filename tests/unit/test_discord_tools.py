@@ -20,7 +20,11 @@ def mock_client():
     channel.guild = MagicMock()
     channel.guild.id = 999
     channel.guild.name = "Test Guild"
-    channel.send = AsyncMock()
+
+    # send() returns a message with an id
+    sent_msg = MagicMock()
+    sent_msg.id = 777888
+    channel.send = AsyncMock(return_value=sent_msg)
     channel.typing = AsyncMock()
 
     def get_channel(cid):
@@ -48,6 +52,7 @@ async def test_send_discord_message(mock_client):
     # Assert - verify the message was sent correctly
     channel.send.assert_called_once_with("Hello!", embed=None, files=None)
     assert result["status"] == "sent"
+    assert result["message_id"] == "777888"
 
 
 @pytest.mark.asyncio
@@ -98,3 +103,69 @@ async def test_add_reaction(mock_client):
     # Assert - verify the reaction was added
     message.add_reaction.assert_called_once()
     assert result["status"] == "reacted"
+
+
+@pytest.mark.asyncio
+async def test_edit_message(mock_client):
+    """Edit a bot message by ID."""
+    # Arrange - set up client with a bot-owned message
+    client, channel = mock_client
+    bot_user = MagicMock()
+    bot_user.id = 42
+    client.user = bot_user
+
+    message = AsyncMock()
+    message.author = bot_user
+    message.edit = AsyncMock()
+    channel.fetch_message = AsyncMock(return_value=message)
+    from pepper.integrations.discord.discord_tools import edit_message_impl
+
+    # Act - edit the message
+    result = await edit_message_impl(client, "123456", "111", text="Updated text")
+
+    # Assert - verify the message was edited
+    message.edit.assert_called_once()
+    assert result["status"] == "edited"
+    assert result["message_id"] == "111"
+
+
+@pytest.mark.asyncio
+async def test_edit_message_not_own(mock_client):
+    """Editing someone else's message returns an error."""
+    # Arrange - set up client where message author differs from bot
+    client, channel = mock_client
+    bot_user = MagicMock()
+    bot_user.id = 42
+    client.user = bot_user
+
+    other_user = MagicMock()
+    other_user.id = 99
+    message = AsyncMock()
+    message.author = other_user
+    channel.fetch_message = AsyncMock(return_value=message)
+    from pepper.integrations.discord.discord_tools import edit_message_impl
+
+    # Act - try to edit someone else's message
+    result = await edit_message_impl(client, "123456", "111", text="Nope")
+
+    # Assert - verify error is returned
+    assert result["status"] == "error"
+    assert "own messages" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_edit_message_not_found(mock_client):
+    """Editing a non-existent message returns an error."""
+    # Arrange - set up client where fetch_message raises NotFound
+    client, channel = mock_client
+    channel.fetch_message = AsyncMock(
+        side_effect=discord.NotFound(MagicMock(status=404), "Not found")
+    )
+    from pepper.integrations.discord.discord_tools import edit_message_impl
+
+    # Act - try to edit a missing message
+    result = await edit_message_impl(client, "123456", "999", text="Gone")
+
+    # Assert - verify error is returned
+    assert result["status"] == "error"
+    assert "not found" in result["message"]
