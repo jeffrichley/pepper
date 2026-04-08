@@ -8,7 +8,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_watch_stdin_sets_event_on_eof():
-    """stdin EOF triggers the shutdown event."""
+    """Stdin EOF triggers the shutdown event."""
     from pepper.integrations.discord.mcp_server import _watch_stdin
 
     # Arrange - create a shutdown event

@@ -18,7 +18,7 @@ def access_file(tmp_path):
     return _write
 
 
-def _make_message(
+def _make_message(  # noqa: PLR0913
     *,
     author_id: int = 100,
     is_bot: bool = False,

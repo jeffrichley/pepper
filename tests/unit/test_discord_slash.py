@@ -18,7 +18,7 @@ def test_setup_commands_registers_four():
         mock_client = MagicMock()
         mock_client.http = MagicMock()
         mock_client.application_id = None
-        mock_client._command_tree = None  # noqa: SLF001
+        mock_client._command_tree = None
 
         # Bypass the "already has a tree" check
         mock_tree = MagicMock()
@@ -46,11 +46,7 @@ def test_setup_commands_registers_four():
 
 def test_check_access_allowed():
     """User in allowFrom passes access check."""
-    from pepper.integrations.discord.slash_commands import setup_commands
-
-    # Arrange — _check_access is now a closure inside setup_commands
-    # We test it indirectly by verifying the commands respect access
-    # For unit testing, we verify the logic directly
+    # Arrange
     config = {"allowFrom": ["100"]}
     author_id = str(100)
     allow_from = config.get("allowFrom", [])
