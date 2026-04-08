@@ -102,6 +102,7 @@ async def send_discord_message(
     text: str = "",
     embed: dict[str, Any] | None = None,
     files: list[str] | None = None,
+    reply_to: str | None = None,
 ) -> dict[str, str]:
     """Send a message to a Discord channel.
 
@@ -114,8 +115,11 @@ async def send_discord_message(
         text: Message text (markdown supported).
         embed: Rich embed with title, description, color, fields.
         files: File paths or URLs to attach as files.
+        reply_to: Message ID to reply to (creates a quote-reply thread).
     """
-    return await send_discord_message_impl(client, channel_id, text, embed, files)
+    return await send_discord_message_impl(
+        client, channel_id, text, embed, files, reply_to,
+    )
 
 
 @mcp.tool()

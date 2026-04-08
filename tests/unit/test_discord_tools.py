@@ -50,9 +50,30 @@ async def test_send_discord_message(mock_client):
     result = await send_discord_message_impl(client, "123456", text="Hello!")
 
     # Assert - verify the message was sent correctly
-    channel.send.assert_called_once_with("Hello!", embed=None, files=[])
+    channel.send.assert_called_once_with(
+        "Hello!", embed=None, files=[], reference=None,
+    )
     assert result["status"] == "sent"
     assert result["message_id"] == "777888"
+
+
+@pytest.mark.asyncio
+async def test_send_discord_message_with_reply_to(mock_client):
+    """Send a message as a reply to another message."""
+    # Arrange
+    client, channel = mock_client
+    from pepper.integrations.discord.discord_tools import send_discord_message_impl
+
+    # Act - send with reply_to
+    result = await send_discord_message_impl(
+        client, "123456", text="Reply!", reply_to="555",
+    )
+
+    # Assert - reference is set
+    call_kwargs = channel.send.call_args
+    assert call_kwargs.kwargs["reference"] is not None
+    assert call_kwargs.kwargs["reference"].message_id == 555
+    assert result["status"] == "sent"
 
 
 @pytest.mark.asyncio

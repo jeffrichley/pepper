@@ -112,12 +112,13 @@ async def _download_url_to_file(
         return None
 
 
-async def send_discord_message_impl(
+async def send_discord_message_impl(  # noqa: PLR0913
     client: discord.Client,
     channel_id: str,
     text: str = "",
     embed: dict[str, Any] | None = None,
     files: list[str] | None = None,
+    reply_to: str | None = None,
 ) -> dict[str, str]:
     """Send a message to a Discord channel with optional file attachments."""
     channel = await _get_messageable(client, channel_id)
@@ -126,6 +127,15 @@ async def send_discord_message_impl(
 
     discord_embed = build_embed(embed)
     discord_files = await _prepare_files(files)
+
+    # Build message reference for reply threading
+    reference = None
+    if reply_to:
+        reference = discord.MessageReference(
+            message_id=int(reply_to),
+            channel_id=int(channel_id),
+            fail_if_not_exists=False,
+        )
 
     sent_message: discord.Message | None = None
     if text:
@@ -137,10 +147,13 @@ async def send_discord_message_impl(
                 chunk,
                 embed=discord_embed if is_last else None,
                 files=discord_files if is_first else None,
+                reference=reference if is_first else None,
             )
     elif discord_embed or discord_files:
         sent_message = await channel.send(  # type: ignore[arg-type]
-            embed=discord_embed, files=discord_files or None,
+            embed=discord_embed,
+            files=discord_files or None,
+            reference=reference,
         )
     else:
         return {
