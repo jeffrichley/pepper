@@ -19,8 +19,6 @@ from typing import Any
 import discord
 import httpx
 
-from pepper.attachments import download_attachment
-
 from .access import gate, load_access
 from .chunking import smart_chunk
 from .config import CHANNEL_URL
@@ -99,25 +97,19 @@ async def on_message(message: discord.Message) -> None:
     chat_id = make_chat_id(message)
     is_dm = message.guild is None
 
-    # Download attachments and build content/metadata
+    # Collect attachment metadata (no download — use download_attachment tool)
     content = message.content
     attachment_infos = []
     for att in message.attachments:
-        local_path = await download_attachment(
-            url=att.url,
-            filename=att.filename,
-            message_id=str(message.id),
+        attachment_infos.append(
+            {
+                "filename": att.filename,
+                "url": att.url,
+                "content_type": att.content_type or "unknown",
+                "size_bytes": att.size,
+            }
         )
-        if local_path:
-            attachment_infos.append(
-                {
-                    "filename": att.filename,
-                    "content_type": att.content_type or "unknown",
-                    "path": str(local_path),
-                    "size_bytes": local_path.stat().st_size,
-                }
-            )
-            content += f"\n[📎 {att.filename}]"
+        content += f"\n[📎 {att.filename}]"
 
     metadata = {
         "guild_id": str(message.guild.id) if message.guild else "",
