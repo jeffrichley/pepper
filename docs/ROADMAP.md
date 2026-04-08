@@ -11,9 +11,9 @@ flowchart TD
     classDef done fill:#69db7c,stroke:#2b8a3e,color:#333
 
     subgraph B1["Batch 1: Core Tools"]
-        I10["#10 edit_message"]:::notstarted
-        I11["#11 fetch_messages"]:::notstarted
-        I14["#14 graceful shutdown"]:::notstarted
+        I10["#10 edit_message"]:::done
+        I11["#11 fetch_messages"]:::done
+        I14["#14 graceful shutdown"]:::done
     end
 
     subgraph B2["Batch 2: Message Flow"]
@@ -100,11 +100,11 @@ flowchart TD
 Update this as issues close:
 
 - [ ] #9 — access control
-- [ ] #10 — edit_message
-- [ ] #11 — fetch_messages
+- [x] #10 — edit_message
+- [x] #11 — fetch_messages
 - [ ] #12 — mention detection
 - [ ] #13 — threading + reply-to
-- [ ] #14 — graceful shutdown
+- [x] #14 — graceful shutdown
 - [ ] #15 — smart chunking
 - [ ] #16 — briefing dashboard
 - [ ] #17 — project threads
