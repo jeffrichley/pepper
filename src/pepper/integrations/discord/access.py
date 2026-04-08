@@ -1,7 +1,11 @@
-"""Discord access control — DM policy, guild channel opt-in, allowlists.
+"""Discord access control — DM policy, guild channels, allowlists.
 
 Loads access configuration from ~/.pepper/discord/access.json.
 Provides a gate function to check whether a message should be processed.
+
+Guild channels are open by default for users in allowFrom.
+Configure a channel only to override: require mention, restrict users,
+or set denied=true to block entirely.
 """
 
 from __future__ import annotations
@@ -74,17 +78,27 @@ def _check_guild_access(
     channel_id: str,
     author_id: str,
 ) -> bool:
-    """Check whether a guild message passes channel-level access control."""
+    """Check whether a guild message passes access control.
+
+    Channels are open by default for users in the global allowFrom.
+    Per-channel config overrides: denied=true blocks, allowFrom restricts.
+    """
+    global_allow = config.get("allowFrom", [])
     channels = config.get("channels", {})
     channel_config = channels.get(channel_id)
 
-    if channel_config is None:
-        # Channel not configured — not opted in
-        return False
+    if channel_config is not None:
+        # Channel has explicit config
+        if channel_config.get("denied", False):
+            return False
+        # Per-channel allowFrom overrides global
+        allow_from = channel_config.get("allowFrom", [])
+        if allow_from:
+            return author_id in allow_from
 
-    # Check allowFrom if specified for this channel
-    allow_from = channel_config.get("allowFrom", [])
-    return not (allow_from and author_id not in allow_from)
+    # No channel-specific restriction — check global allowFrom
+    # If global allowFrom is empty, allow everyone
+    return not global_allow or author_id in global_allow
 
 
 def _is_mentioned(
@@ -153,15 +167,16 @@ def gate(
     if is_dm:
         return _check_dm_access(config, author_id)
 
-    # Guild message — check channel access first
+    # Guild message — check channel access
     channel_id = str(message.channel.id)
     if not _check_guild_access(config, channel_id, author_id):
         return False
 
     # Check if mention is required for this channel
+    # Default: no mention required (open channels)
     channels = config.get("channels", {})
     channel_config = channels.get(channel_id, {})
-    require_mention = channel_config.get("requireMention", True)
+    require_mention = channel_config.get("requireMention", False)
 
     if require_mention:
         return _is_mentioned(message, bot_user, config, recent_bot_message_ids)

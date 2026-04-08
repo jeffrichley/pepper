@@ -157,13 +157,48 @@ def test_gate_dm_disabled():
     assert result is False
 
 
-def test_gate_guild_not_configured():
-    """Guild message in unconfigured channel is dropped."""
+def test_gate_guild_not_configured_allows_by_default():
+    """Guild message in unconfigured channel passes (open by default)."""
+    from pepper.integrations.discord.access import gate
+
+    # Arrange — no channels configured, no allowFrom restriction
+    config = {"channels": {}, "allowFrom": []}
+    msg = _make_message(guild_id=999, channel_id=123)
+    bot = _make_bot_user()
+
+    # Act
+    result = gate(msg, bot, config, set())
+
+    # Assert — open by default
+    assert result is True
+
+
+def test_gate_guild_not_configured_checks_global_allowfrom():
+    """Unconfigured channel still checks global allowFrom."""
+    from pepper.integrations.discord.access import gate
+
+    # Arrange — user not in allowFrom
+    config = {"channels": {}, "allowFrom": ["200"]}
+    msg = _make_message(guild_id=999, channel_id=123, author_id=100)
+    bot = _make_bot_user()
+
+    # Act
+    result = gate(msg, bot, config, set())
+
+    # Assert — denied by global allowFrom
+    assert result is False
+
+
+def test_gate_guild_denied_channel():
+    """Channel with denied=true blocks all messages."""
     from pepper.integrations.discord.access import gate
 
     # Arrange
-    config = {"channels": {}}
-    msg = _make_message(guild_id=999, channel_id=123)
+    config = {
+        "channels": {"123": {"denied": True}},
+        "allowFrom": ["100"],
+    }
+    msg = _make_message(guild_id=999, channel_id=123, author_id=100)
     bot = _make_bot_user()
 
     # Act
