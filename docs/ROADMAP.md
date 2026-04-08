@@ -38,15 +38,15 @@ flowchart LR
 
     subgraph B5["Batch 5: Attachments"]
         I38["#38 no auto-download"]:::done
-        I23["#23 attachment security"]:::notstarted
-        I25["#25 download_attachment"]:::notstarted
+        I23["#23 attachment security"]:::done
+        I25["#25 download_attachment"]:::done
         I37["#37 attachment system"]:::notstarted
     end
 
     subgraph B6["Batch 6: Config + Guards"]
-        I31["#31 ack reaction"]:::notstarted
-        I32["#32 outbound gate"]:::notstarted
-        I33["#33 reply-to mode"]:::notstarted
+        I31["#31 ack reaction"]:::done
+        I32["#32 outbound gate"]:::done
+        I33["#33 reply-to mode"]:::done
     end
 
     subgraph B7["Batch 7: Superpowers"]
@@ -115,17 +115,17 @@ Update this as issues close:
 - [ ] #20 — forum channel
 - [ ] #21 — permission relay
 - [x] #22 — progress embeds
-- [ ] #23 — attachment security
+- [x] #23 — attachment security
 - [ ] #24 — modal forms
-- [ ] #25 — download_attachment
+- [x] #25 — download_attachment
 - [x] #26 — scheduled events
 - [ ] #27 — voice TTS
 - [ ] #28 — webhook personas
 - [ ] #29 — AutoMod
 - [ ] #30 — role-based access
-- [ ] #31 — ack reaction
-- [ ] #32 — outbound gate
-- [ ] #33 — reply-to mode
+- [x] #31 — ack reaction
+- [x] #32 — outbound gate
+- [x] #33 — reply-to mode
 - [ ] #34 — MyPy strict
 - [ ] #35 — Components V2
 - [ ] #36 — coverage 80%
