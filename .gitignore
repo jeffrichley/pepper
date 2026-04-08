@@ -14,6 +14,11 @@ Thumbs.db
 __pycache__/
 *.pyc
 
+# Test/coverage artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+
 # Generated plans
 .agent/
 .gstack/
