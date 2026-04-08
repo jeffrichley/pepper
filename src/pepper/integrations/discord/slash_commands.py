@@ -13,14 +13,13 @@ from typing import Any
 import discord
 from discord import app_commands
 
-from .access import load_access
-
 log = logging.getLogger("pepper-discord")
 
 
 def setup_commands(
     client: discord.Client,
     channel_url: str,
+    access_config: dict[str, Any] | None = None,
 ) -> app_commands.CommandTree:
     """Register slash commands on the client and return the CommandTree."""
     tree = app_commands.CommandTree(client)
@@ -98,16 +97,14 @@ def setup_commands(
             f"channel using send_discord_message with a rich embed.",
         )
 
+    def _check_access(interaction: discord.Interaction) -> bool:
+        """Check if the interaction user has access via the access config."""
+        config = access_config or {}
+        author_id = str(interaction.user.id)
+        allow_from = config.get("allowFrom", [])
+        return not allow_from or author_id in allow_from
+
     return tree
-
-
-def _check_access(interaction: discord.Interaction) -> bool:
-    """Check if the interaction user has access via the access config."""
-    config = load_access()
-    author_id = str(interaction.user.id)
-    allow_from = config.get("allowFrom", [])
-    # If allowFrom is empty, allow all. Otherwise check membership.
-    return not allow_from or author_id in allow_from
 
 
 async def _send_prompt(

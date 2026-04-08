@@ -62,7 +62,7 @@ def make_chat_id(message: discord.Message) -> str:
 
 
 # Set up slash commands
-_command_tree = setup_commands(client, CHANNEL_URL)
+_command_tree = setup_commands(client, CHANNEL_URL, _access_config)
 
 
 @client.event

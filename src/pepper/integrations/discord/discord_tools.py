@@ -59,9 +59,11 @@ DISCORD_MSG_LIMIT = 2000
 DISCORD_FILE_SIZE_LIMIT = 25 * 1024 * 1024  # 25MB
 DISCORD_MAX_FILES = 10
 _BLOCKED_DIRS = [
-    str(pathlib.Path.home() / ".pepper" / "discord"),
-    str(pathlib.Path.home() / ".pepper" / ".claude"),
-    str(pathlib.Path.home() / ".pepper" / ".env"),
+    pathlib.Path.home() / ".pepper" / "discord",
+    pathlib.Path.home() / ".pepper" / ".claude",
+]
+_BLOCKED_FILES = [
+    pathlib.Path.home() / ".pepper" / ".env",
 ]
 
 
@@ -83,10 +85,13 @@ async def _get_messageable(
 
 def _validate_file_path(path: pathlib.Path) -> str | None:
     """Validate a file path for sending. Returns error message or None."""
-    real = str(path.resolve())
-    for blocked in _BLOCKED_DIRS:
-        if real.startswith(blocked):
+    resolved = path.resolve()
+    for blocked_dir in _BLOCKED_DIRS:
+        if resolved.is_relative_to(blocked_dir):
             return f"Blocked: {path.name} is in a protected directory"
+    for blocked_file in _BLOCKED_FILES:
+        if resolved == blocked_file.resolve():
+            return f"Blocked: {path.name} is a protected file"
     if path.stat().st_size > DISCORD_FILE_SIZE_LIMIT:
         return f"Too large: {path.name} exceeds 25MB"
     return None
@@ -362,8 +367,17 @@ async def create_scheduled_event_impl(  # noqa: PLR0913
         return {"status": "error", "message": f"Guild {guild_id} not found"}
 
     try:
-        start = datetime.fromisoformat(start_time).replace(tzinfo=UTC)
-        end = datetime.fromisoformat(end_time).replace(tzinfo=UTC)
+        start_dt = datetime.fromisoformat(start_time)
+        end_dt = datetime.fromisoformat(end_time)
+        # Convert tz-aware strings properly, assume UTC for naive
+        start = (
+            start_dt.astimezone(UTC) if start_dt.tzinfo
+            else start_dt.replace(tzinfo=UTC)
+        )
+        end = (
+            end_dt.astimezone(UTC) if end_dt.tzinfo
+            else end_dt.replace(tzinfo=UTC)
+        )
     except ValueError as e:
         return {"status": "error", "message": f"Invalid datetime: {e}"}
 
