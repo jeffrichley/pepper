@@ -30,9 +30,9 @@ flowchart LR
     end
 
     subgraph B4["Batch 4: Power Features"]
-        I17["#17 project threads"]:::notstarted
-        I18["#18 polls"]:::notstarted
-        I26["#26 scheduled events"]:::notstarted
+        I17["#17 project threads"]:::done
+        I18["#18 polls"]:::done
+        I26["#26 scheduled events"]:::done
         I21["#21 permission relay"]:::notstarted
     end
 
@@ -109,8 +109,8 @@ Update this as issues close:
 - [x] #14 — graceful shutdown
 - [x] #15 — smart chunking
 - [x] #16 — briefing dashboard
-- [ ] #17 — project threads
-- [ ] #18 — polls
+- [x] #17 — project threads
+- [x] #18 — polls
 - [x] #19 — slash commands
 - [ ] #20 — forum channel
 - [ ] #21 — permission relay
@@ -118,7 +118,7 @@ Update this as issues close:
 - [ ] #23 — attachment security
 - [ ] #24 — modal forms
 - [ ] #25 — download_attachment
-- [ ] #26 — scheduled events
+- [x] #26 — scheduled events
 - [ ] #27 — voice TTS
 - [ ] #28 — webhook personas
 - [ ] #29 — AutoMod
