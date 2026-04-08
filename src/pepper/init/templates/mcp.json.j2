@@ -1,13 +1,16 @@
 {
   "mcpServers": {
     "pepper-channel": {
-      "command": "pepper-channel"
+      "command": "uv",
+      "args": ["run", "--project", "{{ project_path }}", "pepper-channel"]
     },
     "pepper-discord": {
-      "command": "pepper-discord"
+      "command": "uv",
+      "args": ["run", "--project", "{{ project_path }}", "pepper-discord"]
     },
     "pepper-scheduler": {
-      "command": "pepper-scheduler"
+      "command": "uv",
+      "args": ["run", "--project", "{{ project_path }}", "pepper-scheduler"]
     }
   }
 }

@@ -8,7 +8,6 @@ Exposes Discord tools via MCP over stdio.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import signal
 import sys
@@ -46,51 +45,39 @@ from .discord_tools import (  # noqa: E402
     send_typing_impl,
 )
 
-SHUTDOWN_TIMEOUT_SECONDS = 2.0
-
-
-async def _watch_stdin(shutdown_event: asyncio.Event) -> None:
-    """Watch for stdin EOF (MCP connection end) and signal shutdown."""
-    loop = asyncio.get_running_loop()
-    with contextlib.suppress(Exception):
-        await loop.run_in_executor(None, sys.stdin.read)
-    log.info("stdin closed — MCP connection ended")
-    shutdown_event.set()
-
 
 @asynccontextmanager
 async def lifespan(server: FastMCP) -> AsyncIterator[None]:
     """Start Discord bot on MCP server startup with graceful shutdown."""
     log.info("Starting Pepper Discord integration...")
 
-    shutdown_event = asyncio.Event()
-
-    # Register signal handlers
+    # Register signal handlers for clean shutdown
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         try:
-            loop.add_signal_handler(sig, shutdown_event.set)
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(client.close()))
         except NotImplementedError:
-            # Windows doesn't support add_signal_handler for all signals
-            signal.signal(sig, lambda *_: shutdown_event.set())
+            signal.signal(sig, lambda *_: asyncio.create_task(client.close()))
 
-    # Start Discord bot and stdin watcher
-    token = require_token()
+    # Validate token before attempting connection
+    try:
+        token = require_token()
+        log.info(f"Token loaded (length={len(token)}, prefix={token[:10]}...)")
+    except RuntimeError as e:
+        log.error(f"Token error: {e}")
+        raise
+
+    # Start Discord bot as background task
     bot_task = asyncio.create_task(start_bot(token))
-    stdin_task = asyncio.create_task(_watch_stdin(shutdown_event))
     log.info("Discord bot starting...")
 
-    # Wait for shutdown signal
-    shutdown_wait = asyncio.create_task(shutdown_event.wait())
     try:
         yield
     finally:
-        # Shutdown triggered — clean up Discord client
+        # MCP server is shutting down (stdin closed by FastMCP)
         log.info("Shutting down Discord bot...")
         await client.close()
         bot_task.cancel()
-        stdin_task.cancel()
-        shutdown_wait.cancel()
         log.info("Discord bot shut down")
 
 

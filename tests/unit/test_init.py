@@ -51,7 +51,8 @@ def test_generate_mcp_has_channel(tmp_path):
     generate_runtime(runtime_path=runtime)
 
     mcp = json.loads((runtime / ".mcp.json").read_text())
-    assert mcp["mcpServers"]["pepper-channel"]["command"] == "pepper-channel"
+    assert mcp["mcpServers"]["pepper-channel"]["command"] == "uv"
+    assert "pepper-channel" in mcp["mcpServers"]["pepper-channel"]["args"]
 
 
 def test_generate_does_not_overwrite_existing_vault(tmp_path):

@@ -100,9 +100,12 @@ def generate_runtime(
     template = env.get_template("CLAUDE.md.j2")
     (runtime_path / "CLAUDE.md").write_text(template.render())
 
-    # .mcp.json
+    # .mcp.json — use the project root (where pyproject.toml lives)
+    # __file__ is src/pepper/init/generator.py, project root is 3 levels up
+    # Use as_posix() so JSON doesn't break on Windows backslashes
+    project_path = Path(__file__).resolve().parent.parent.parent.parent.as_posix()
     template = env.get_template("mcp.json.j2")
-    (runtime_path / ".mcp.json").write_text(template.render())
+    (runtime_path / ".mcp.json").write_text(template.render(project_path=project_path))
 
     # config.toml
     template = env.get_template("config.toml.j2")
@@ -138,7 +141,7 @@ def generate_runtime(
 
 def _install_skills(runtime_path: Path) -> None:
     """Copy skills from the installed package to the runtime .claude/skills/."""
-    import shutil  # noqa: PLC0415
+    import shutil
 
     skills_source = Path(__file__).parent.parent / "skills"
     if not skills_source.is_dir():
@@ -152,7 +155,7 @@ def _install_skills(runtime_path: Path) -> None:
 
 def _migrate_vault(source: Path, dest: Path) -> None:
     """Copy vault contents from source to dest, skipping existing files."""
-    import shutil  # noqa: PLC0415
+    import shutil
 
     for item in source.rglob("*"):
         if item.is_file():

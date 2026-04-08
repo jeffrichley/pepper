@@ -431,4 +431,12 @@ async def start_bot(token: str) -> None:
     asyncio.create_task(listen_for_replies())
     asyncio.create_task(keep_typing())
     asyncio.create_task(_periodic_attachment_cleanup())
-    await client.start(token)
+    try:
+        await client.start(token)
+    except discord.LoginFailure as e:
+        log.error(f"Discord login failed: {e}")
+        log.error("Check DISCORD_BOT_TOKEN in ~/.pepper/.env")
+        raise
+    except Exception as e:
+        log.error(f"Discord bot crashed: {type(e).__name__}: {e}")
+        raise
