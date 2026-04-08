@@ -31,10 +31,15 @@ from .bot import client, start_bot  # noqa: E402
 from .config import CHANNEL_URL, DISCORD_BOT_TOKEN  # noqa: E402
 from .discord_tools import (  # noqa: E402
     add_reaction_impl,
+    cancel_scheduled_event_impl,
+    create_poll_impl,
+    create_scheduled_event_impl,
+    create_thread_impl,
     edit_message_impl,
     fetch_messages_impl,
     get_channel_info_impl,
     list_channels_impl,
+    list_scheduled_events_impl,
     send_briefing_impl,
     send_discord_message_impl,
     send_typing_impl,
@@ -206,6 +211,105 @@ async def get_channel_info(channel_id: str) -> dict[str, Any]:
         channel_id: The channel to inspect.
     """
     return await get_channel_info_impl(client, channel_id)
+
+
+@mcp.tool()
+async def create_poll(
+    channel_id: str,
+    question: str,
+    answers: list[str],
+    duration_hours: int = 1,
+) -> dict[str, str]:
+    """Create a poll in a Discord channel.
+
+    Uses Discord's native poll feature. Good for helping Jeff
+    decide what to focus on when he's scattered between projects.
+
+    Args:
+        channel_id: The channel to create the poll in.
+        question: The poll question.
+        answers: List of answer options (max 10).
+        duration_hours: How long the poll runs (1-336 hours, default 1).
+    """
+    return await create_poll_impl(
+        client, channel_id, question, answers, duration_hours,
+    )
+
+
+@mcp.tool()
+async def create_scheduled_event(  # noqa: PLR0913
+    guild_id: str,
+    name: str,
+    start_time: str,
+    end_time: str,
+    description: str = "",
+    location: str = "",
+) -> dict[str, str]:
+    """Create a scheduled event in a Discord server.
+
+    Events appear in Discord's event list and users get native
+    notifications. Use for deadlines, meetings, reviews.
+
+    Args:
+        guild_id: The server to create the event in.
+        name: Event name.
+        start_time: ISO 8601 start time (e.g. "2026-04-10T14:00:00").
+        end_time: ISO 8601 end time.
+        description: Event description with context.
+        location: Event location (room, link, etc.).
+    """
+    return await create_scheduled_event_impl(
+        client, guild_id, name, start_time, end_time, description, location,
+    )
+
+
+@mcp.tool()
+async def list_scheduled_events(
+    guild_id: str,
+) -> list[dict[str, Any]]:
+    """List all scheduled events in a Discord server.
+
+    Args:
+        guild_id: The server to list events from.
+    """
+    return await list_scheduled_events_impl(client, guild_id)
+
+
+@mcp.tool()
+async def cancel_scheduled_event(
+    guild_id: str,
+    event_id: str,
+) -> dict[str, str]:
+    """Cancel a scheduled event.
+
+    Args:
+        guild_id: The server containing the event.
+        event_id: The event ID to cancel.
+    """
+    return await cancel_scheduled_event_impl(client, guild_id, event_id)
+
+
+@mcp.tool()
+async def create_thread(
+    channel_id: str,
+    name: str,
+    message_id: str | None = None,
+    auto_archive_minutes: int = 1440,
+) -> dict[str, str]:
+    """Create a thread in a Discord channel.
+
+    Creates a public thread, optionally attached to a specific message.
+    Use this to keep project discussions organized.
+
+    Args:
+        channel_id: The text channel to create the thread in.
+        name: Thread name (e.g. "Redwing: No-Go Zones").
+        message_id: Optional message ID to start the thread from.
+        auto_archive_minutes: Inactivity before auto-archive (60, 1440, 4320, 10080).
+    """
+    return await create_thread_impl(
+        client, channel_id, name, message_id, auto_archive_minutes,
+    )
 
 
 @mcp.tool()

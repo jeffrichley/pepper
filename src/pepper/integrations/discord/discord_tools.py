@@ -314,6 +314,169 @@ async def get_channel_info_impl(
     return info
 
 
+async def create_scheduled_event_impl(  # noqa: PLR0913
+    client: discord.Client,
+    guild_id: str,
+    name: str,
+    start_time: str,
+    end_time: str,
+    description: str = "",
+    location: str = "",
+) -> dict[str, str]:
+    """Create a scheduled event in a Discord guild.
+
+    Uses external entity type (not voice channel). Start and end times
+    are ISO 8601 strings.
+    """
+    from datetime import UTC, datetime  # noqa: PLC0415
+
+    guild = client.get_guild(int(guild_id))
+    if guild is None:
+        return {"status": "error", "message": f"Guild {guild_id} not found"}
+
+    try:
+        start = datetime.fromisoformat(start_time).replace(tzinfo=UTC)
+        end = datetime.fromisoformat(end_time).replace(tzinfo=UTC)
+    except ValueError as e:
+        return {"status": "error", "message": f"Invalid datetime: {e}"}
+
+    event = await guild.create_scheduled_event(
+        name=name,
+        start_time=start,
+        end_time=end,
+        entity_type=discord.EntityType.external,
+        privacy_level=discord.PrivacyLevel.guild_only,
+        location=location or "TBD",
+        description=description,
+    )
+    return {
+        "status": "created",
+        "event_id": str(event.id),
+        "name": event.name,
+    }
+
+
+async def list_scheduled_events_impl(
+    client: discord.Client,
+    guild_id: str,
+) -> list[dict[str, Any]]:
+    """List all scheduled events in a guild."""
+    guild = client.get_guild(int(guild_id))
+    if guild is None:
+        return []
+
+    events = await guild.fetch_scheduled_events()
+    return [
+        {
+            "id": str(e.id),
+            "name": e.name,
+            "start_time": e.start_time.isoformat() if e.start_time else None,
+            "end_time": e.end_time.isoformat() if e.end_time else None,
+            "description": e.description or "",
+            "location": e.location or "",
+            "status": e.status.name,
+        }
+        for e in events
+    ]
+
+
+async def cancel_scheduled_event_impl(
+    client: discord.Client,
+    guild_id: str,
+    event_id: str,
+) -> dict[str, str]:
+    """Cancel (delete) a scheduled event."""
+    guild = client.get_guild(int(guild_id))
+    if guild is None:
+        return {"status": "error", "message": f"Guild {guild_id} not found"}
+
+    try:
+        event = await guild.fetch_scheduled_event(int(event_id))
+        await event.delete()
+        return {"status": "cancelled", "event_id": event_id}
+    except discord.NotFound:
+        return {"status": "error", "message": f"Event {event_id} not found"}
+
+
+async def create_poll_impl(
+    client: discord.Client,
+    channel_id: str,
+    question: str,
+    answers: list[str],
+    duration_hours: int = 1,
+) -> dict[str, str]:
+    """Create a poll in a Discord channel.
+
+    Uses Discord's native poll feature. Results are visible to all.
+    """
+    from datetime import timedelta  # noqa: PLC0415
+
+    channel = await _get_messageable(client, channel_id)
+    if channel is None:
+        return {"status": "error", "message": f"Channel {channel_id} not found"}
+
+    duration_hours = max(1, min(duration_hours, 336))  # 1h to 14 days
+
+    poll = discord.Poll(
+        question=question,
+        duration=timedelta(hours=duration_hours),
+    )
+    for answer_text in answers[:10]:  # Discord allows max 10 answers
+        poll.add_answer(text=answer_text)
+
+    msg = await channel.send(poll=poll)
+    return {"status": "sent", "message_id": str(msg.id)}
+
+
+async def create_thread_impl(
+    client: discord.Client,
+    channel_id: str,
+    name: str,
+    message_id: str | None = None,
+    auto_archive_minutes: int = 1440,
+) -> dict[str, str]:
+    """Create a thread in a Discord channel.
+
+    Can create a thread from a specific message or as a standalone thread.
+    Auto-archives after the specified inactivity period.
+    """
+    channel = await _get_messageable(client, channel_id)
+    if channel is None:
+        return {"status": "error", "message": f"Channel {channel_id} not found"}
+
+    if not isinstance(channel, discord.TextChannel):
+        return {
+            "status": "error",
+            "message": "Threads can only be created in text channels",
+        }
+
+    # Clamp to Discord's allowed values: 60, 1440, 4320, 10080
+    allowed = [60, 1440, 4320, 10080]
+    archive = min(allowed, key=lambda x: abs(x - auto_archive_minutes))
+
+    if message_id:
+        try:
+            message = await channel.fetch_message(int(message_id))
+            thread = await message.create_thread(
+                name=name,
+                auto_archive_duration=archive,
+            )
+        except discord.NotFound:
+            return {"status": "error", "message": f"Message {message_id} not found"}
+    else:
+        thread = await channel.create_thread(
+            name=name,
+            auto_archive_duration=archive,
+            type=discord.ChannelType.public_thread,
+        )
+
+    return {
+        "status": "created",
+        "thread_id": str(thread.id),
+        "name": thread.name,
+    }
+
+
 async def send_briefing_impl(
     client: discord.Client,
     channel_id: str,
