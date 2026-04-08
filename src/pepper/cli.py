@@ -121,8 +121,9 @@ def _start_interactive(runtime_path: Path) -> None:
         [
             "claude",
             "--continue",
-            "--channels",
-            "plugin:discord@claude-plugins-official",
+            "--dangerously-skip-permissions",
+            "--dangerously-load-development-channels",
+            "server:pepper-channel",
         ],
         cwd=str(runtime_path),
         env=env,
