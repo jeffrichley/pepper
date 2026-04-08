@@ -5,14 +5,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env from runtime directory (~/.pepper/.env) first, then package dir.
-# Environment variables set by pepper start take precedence over all .env files.
+# Load .env from runtime directory (~/.pepper/.env).
+# override=True ensures the file wins over stale env vars from parent processes.
 _runtime_env = Path.home() / ".pepper" / ".env"
 if _runtime_env.exists():
-    load_dotenv(_runtime_env)
-
-INTEGRATION_DIR = Path(__file__).parent
-load_dotenv(INTEGRATION_DIR / ".env")
+    load_dotenv(_runtime_env, override=True)
 
 DISCORD_BOT_TOKEN: str = os.environ.get("DISCORD_BOT_TOKEN", "")
 CHANNEL_URL: str = os.environ.get("PEPPER_CHANNEL_URL", "http://localhost:8788")
