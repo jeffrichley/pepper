@@ -14,6 +14,8 @@ from typing import Any
 import discord
 import httpx
 
+from pepper.attachments import download_attachment
+
 from .chunking import smart_chunk
 from .embeds import build_embed
 from .views import BriefingView
@@ -54,6 +56,13 @@ def _resolve_emoji(name: str) -> str | None:
 
 
 DISCORD_MSG_LIMIT = 2000
+DISCORD_FILE_SIZE_LIMIT = 25 * 1024 * 1024  # 25MB
+DISCORD_MAX_FILES = 10
+_BLOCKED_DIRS = [
+    str(pathlib.Path.home() / ".pepper" / "discord"),
+    str(pathlib.Path.home() / ".pepper" / ".claude"),
+    str(pathlib.Path.home() / ".pepper" / ".env"),
+]
 
 
 async def _get_messageable(
@@ -72,15 +81,29 @@ async def _get_messageable(
     return channel
 
 
+def _validate_file_path(path: pathlib.Path) -> str | None:
+    """Validate a file path for sending. Returns error message or None."""
+    real = str(path.resolve())
+    for blocked in _BLOCKED_DIRS:
+        if real.startswith(blocked):
+            return f"Blocked: {path.name} is in a protected directory"
+    if path.stat().st_size > DISCORD_FILE_SIZE_LIMIT:
+        return f"Too large: {path.name} exceeds 25MB"
+    return None
+
+
 async def _prepare_files(
     file_paths: list[str] | None,
 ) -> list[discord.File]:
-    """Convert file paths and URLs to discord.File objects."""
+    """Convert file paths and URLs to discord.File objects.
+
+    Validates paths against security rules and enforces limits.
+    """
     if not file_paths:
         return []
 
     files: list[discord.File] = []
-    for path_or_url in file_paths:
+    for path_or_url in file_paths[:DISCORD_MAX_FILES]:
         if path_or_url.startswith(("http://", "https://")):
             file = await _download_url_to_file(path_or_url)
             if file:
@@ -88,6 +111,10 @@ async def _prepare_files(
         else:
             p = pathlib.Path(path_or_url)
             if p.exists():
+                error = _validate_file_path(p)
+                if error:
+                    log.warning(f"File rejected: {error}")
+                    continue
                 files.append(discord.File(str(p), filename=p.name))
     return files
 
@@ -503,3 +530,47 @@ async def send_briefing_impl(
         view=view,
     )
     return {"status": "sent", "message_id": str(msg.id)}
+
+
+async def download_attachments_impl(
+    client: discord.Client,
+    channel_id: str,
+    message_id: str,
+) -> dict[str, Any]:
+    """Download all attachments from a Discord message.
+
+    Saves files to ~/.pepper/attachments/YYYY-MM-DD/ and returns
+    paths and metadata.
+    """
+    channel = await _get_messageable(client, channel_id)
+    if channel is None:
+        return {"status": "error", "message": f"Channel {channel_id} not found"}
+
+    try:
+        message = await channel.fetch_message(int(message_id))
+    except discord.NotFound:
+        return {"status": "error", "message": f"Message {message_id} not found"}
+
+    if not message.attachments:
+        return {"status": "ok", "message": "No attachments", "files": []}
+
+    downloaded: list[dict[str, Any]] = []
+    for att in message.attachments:
+        local_path = await download_attachment(
+            url=att.url,
+            filename=att.filename,
+            message_id=message_id,
+        )
+        if local_path:
+            downloaded.append({
+                "filename": att.filename,
+                "path": str(local_path),
+                "content_type": att.content_type or "unknown",
+                "size_bytes": local_path.stat().st_size,
+            })
+
+    return {
+        "status": "ok",
+        "message": f"Downloaded {len(downloaded)} attachment(s)",
+        "files": downloaded,
+    }

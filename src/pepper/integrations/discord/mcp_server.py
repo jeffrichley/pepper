@@ -35,6 +35,7 @@ from .discord_tools import (  # noqa: E402
     create_poll_impl,
     create_scheduled_event_impl,
     create_thread_impl,
+    download_attachments_impl,
     edit_message_impl,
     fetch_messages_impl,
     get_channel_info_impl,
@@ -332,6 +333,24 @@ async def send_briefing(
     return await send_briefing_impl(
         client, channel_id, CHANNEL_URL, summary, embed,
     )
+
+
+@mcp.tool()
+async def download_attachments(
+    channel_id: str,
+    message_id: str,
+) -> dict[str, Any]:
+    """Download all attachments from a Discord message.
+
+    Saves files to ~/.pepper/attachments/YYYY-MM-DD/ and returns
+    local file paths and metadata. Use this when you need to
+    inspect or process a file someone sent.
+
+    Args:
+        channel_id: The channel containing the message.
+        message_id: The message with attachments to download.
+    """
+    return await download_attachments_impl(client, channel_id, message_id)
 
 
 def run() -> None:

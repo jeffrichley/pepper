@@ -121,6 +121,22 @@ def _is_mentioned(
     return False
 
 
+def is_outbound_allowed(
+    config: dict[str, Any],
+    channel_id: str,
+) -> bool:
+    """Check if sending to a channel is allowed.
+
+    Returns True for channels in the config's channels list,
+    or if no channels are configured (open mode).
+    """
+    channels = config.get("channels", {})
+    # If no channels configured, allow all (open mode)
+    if not channels:
+        return True
+    return channel_id in channels
+
+
 def gate(
     message: discord.Message,
     bot_user: discord.User | discord.ClientUser,

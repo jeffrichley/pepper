@@ -10,6 +10,7 @@ This module is imported by mcp_server.py. Do not run directly.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -107,6 +108,12 @@ async def on_message(message: discord.Message) -> None:
     assert client.user is not None
     if not gate(message, client.user, _access_config, _recent_bot_message_ids):
         return
+
+    # Acknowledgment reaction (configurable, can be disabled)
+    ack_emoji = _access_config.get("ackReaction", "")
+    if ack_emoji:
+        with contextlib.suppress(Exception):
+            await message.add_reaction(ack_emoji)
 
     chat_id = make_chat_id(message)
     is_dm = message.guild is None
