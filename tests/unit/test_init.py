@@ -35,14 +35,15 @@ def test_generate_creates_vault_scaffold(tmp_path):
     assert (vault / "projects").is_dir()
 
 
-def test_generate_settings_has_hooks(tmp_path):
-    """Generated settings.json references installed hook entry points."""
+def test_generate_settings_has_permissions(tmp_path):
+    """Generated settings.json has bypassPermissions and no hooks."""
     runtime = tmp_path / ".pepper"
     generate_runtime(runtime_path=runtime)
 
     settings = json.loads((runtime / ".claude" / "settings.json").read_text())
-    hook_cmd = settings["hooks"]["SessionStart"][0]["hooks"][0]["command"]
-    assert "pepper.hooks.session_start_context" in hook_cmd
+    assert settings["permissions"]["defaultMode"] == "bypassPermissions"
+    assert "Bash" in settings["permissions"]["allow"]
+    assert "hooks" not in settings
 
 
 def test_generate_mcp_has_channel(tmp_path):
