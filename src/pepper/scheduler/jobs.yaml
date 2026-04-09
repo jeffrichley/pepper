@@ -27,8 +27,10 @@ nightly_reflection:
     hour: 3
     minute: 0
   prompt: >
-    Nightly reflection: Summarize today's raw logs from Memory/daily/raw/
-    into a daily summary. Write it to Memory/daily/summaries/ with pointer
-    links to raw entries. Identify patterns, decisions made, and open loops.
-    Send a brief summary to pepper-chat Discord channel.
+    Nightly reflection: Read today's transcript from Memory/daily/raw/ (the
+    most recent .jsonl file). Each line is a JSON object with fields: ts
+    (timestamp), dir (inbound/outbound), src (source like discord), cid
+    (chat_id), sender, and content. Summarize the day's conversations into
+    Memory/daily/summaries/YYYY-MM-DD.md. Identify patterns, decisions made,
+    and open loops. Send a brief summary to pepper-chat Discord channel.
   channel_hint: "#pepper-chat"
