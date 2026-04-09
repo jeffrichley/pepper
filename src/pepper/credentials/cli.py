@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import typer
@@ -22,8 +23,20 @@ _vault_path = Path.home() / ".pepper" / "credentials.kdbx"
 _env_path = Path.home() / ".pepper" / ".env"
 
 
+def _load_env() -> None:
+    """Load .env into the process environment if not already set."""
+    if os.environ.get("PEPPER_VAULT_PASSWORD"):
+        return
+    if _env_path.exists():
+        for line in _env_path.read_text().splitlines():
+            if "=" in line and not line.startswith("#"):
+                key, _, value = line.partition("=")
+                os.environ.setdefault(key.strip(), value.strip())
+
+
 def _store() -> CredentialStore:
     """Create a CredentialStore for the current vault path."""
+    _load_env()
     return CredentialStore(_vault_path)
 
 

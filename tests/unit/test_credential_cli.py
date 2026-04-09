@@ -173,6 +173,9 @@ def test_creds_no_password_env(tmp_path, monkeypatch):
     monkeypatch.delenv("PEPPER_VAULT_PASSWORD", raising=False)
     vault_path = tmp_path / "credentials.kdbx"
     monkeypatch.setattr("pepper.credentials.cli._vault_path", vault_path)
+    monkeypatch.setattr(
+        "pepper.credentials.cli._env_path", tmp_path / "nonexistent.env"
+    )
 
     result = runner.invoke(app, ["creds", "list"])
     assert result.exit_code == 1
