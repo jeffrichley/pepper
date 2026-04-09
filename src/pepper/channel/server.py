@@ -21,11 +21,16 @@ from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
 from typing import Any
 
+import uvicorn
 from mcp import types
 from mcp.server.lowlevel.server import NotificationOptions, Server
 from mcp.server.stdio import stdio_server
+from mcp.shared.session import SessionMessage  # type: ignore[attr-defined]
+from mcp.types import JSONRPCNotification
 
 from pepper.channel.router import Router
+from pepper.pipeline import run_inbound, run_outbound
+from pepper.pipeline.model import PipelineMessage
 
 log = logging.getLogger("pepper-channel")
 
@@ -226,6 +231,26 @@ async def _handle_message(
 
     router.add(chat_id, source)
 
+    # Run inbound pipeline hooks (transcript, etc.)
+    pipeline_msg = PipelineMessage(
+        direction="inbound",
+        timestamp=datetime.now(UTC).isoformat(),
+        source=source,
+        chat_id=chat_id,
+        sender=data.get("sender", "unknown"),
+        content=content,
+        metadata={k: str(v) for k, v in data.get("metadata", {}).items()},
+    )
+    result = await asyncio.to_thread(run_inbound, pipeline_msg)
+    if result is None:
+        await _json_response(
+            send,
+            200,
+            {"status": "dropped", "chat_id": chat_id},
+        )
+        return
+    content = result.content
+
     meta = {
         "chat_id": chat_id,
         "sender": data.get("sender", "unknown"),
@@ -408,6 +433,27 @@ def create_mcp_server(router: Router) -> Server:
         metadata = arguments.get("metadata", {})
 
         source = router.lookup(chat_id) or "unknown"
+
+        # Run outbound pipeline hooks (transcript, etc.)
+        pipeline_msg = PipelineMessage(
+            direction="outbound",
+            timestamp=datetime.now(UTC).isoformat(),
+            source=source,
+            chat_id=chat_id,
+            sender="Pepper",
+            content=text,
+            metadata={k: str(v) for k, v in metadata.items()},
+        )
+        out_result = await asyncio.to_thread(run_outbound, pipeline_msg)
+        if out_result is None:
+            return [
+                types.TextContent(
+                    type="text",
+                    text="dropped by pipeline",
+                )
+            ]
+        text = out_result.content
+
         reply_data = {
             "chat_id": chat_id,
             "text": text,
@@ -423,8 +469,8 @@ def create_mcp_server(router: Router) -> Server:
 
 
 async def _notification_pump(
-    server: Server,  # noqa: ARG001
-    read_stream: Any,  # noqa: ARG001
+    _server: Server,
+    _read_stream: Any,
     write_stream: Any,
 ) -> None:
     """Drain the notification queue and send MCP notifications to Claude Code.
@@ -432,15 +478,12 @@ async def _notification_pump(
     This runs on the MCP event loop and sends custom notifications
     that were enqueued by the HTTP thread.
     """
-    global _notification_queue  # noqa: PLW0603
+    global _notification_queue
     _notification_queue = asyncio.Queue()
 
     # We need the session to send notifications, but the session is created
     # inside server.run(). Instead, we'll send raw JSON-RPC notifications
     # directly to the write stream.
-    from mcp.shared.session import SessionMessage  # type: ignore[attr-defined]  # noqa: PLC0415, I001
-    from mcp.types import JSONRPCNotification  # noqa: PLC0415
-
     while True:
         item = await _notification_queue.get()
         try:
@@ -474,12 +517,10 @@ def main() -> None:
     http_app = create_http_app(router)
 
     async def run() -> None:
-        global _mcp_loop  # noqa: PLW0603
+        global _mcp_loop
         _mcp_loop = asyncio.get_running_loop()
 
         # Start HTTP server in a background thread
-        import uvicorn  # noqa: PLC0415
-
         config = uvicorn.Config(
             http_app,
             host="127.0.0.1",

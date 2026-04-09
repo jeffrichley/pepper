@@ -113,6 +113,8 @@ convention = "google"
 "src/pepper/scheduler/**/*.py" = ["TID252"]
 # Init generator uses deferred imports for optional dependencies
 "src/pepper/init/generator.py" = ["PLC0415"]
+# Channel server uses module-level globals for cross-thread state (intentional)
+"src/pepper/channel/server.py" = ["PLW0603"]
 # Skills contain standalone scripts not part of the main package
 "src/pepper/skills/**/*.py" = ["D", "E501", "TID252", "ARG", "PL", "N", "C90"]
 
