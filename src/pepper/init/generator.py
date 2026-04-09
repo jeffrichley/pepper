@@ -116,25 +116,28 @@ def generate_runtime(
     )
 
     # --- Scaffold vault ---
-
     vault = runtime_path / "Memory"
     vault.mkdir(exist_ok=True)
 
-    # Migrate BEFORE scaffold so migrated files take precedence over defaults
     if migrate_from and migrate_from.is_dir():
         _migrate_vault(source=migrate_from, dest=vault)
 
+    _scaffold_vault(vault)
+    _install_skills(runtime_path)
+
+    return runtime_path
+
+
+def _scaffold_vault(vault: Path) -> None:
+    """Create vault directories, default files, and playbook README."""
     for dir_path in VAULT_SCAFFOLD_DIRS:
         (vault / dir_path).mkdir(parents=True, exist_ok=True)
 
-    # Only create default Tier 1 files if they don't already exist
-    # (from migration or prior init)
     for filename, default_content in TIER_1_FILES.items():
         filepath = vault / filename
         if not filepath.exists():
             filepath.write_text(default_content, encoding="utf-8")
 
-    # Playbook README (only if not already present)
     playbook_readme = vault / "playbooks" / "README.md"
     if not playbook_readme.exists():
         readme_template = Path(__file__).parent / "templates" / "playbook-README.md"
@@ -143,11 +146,6 @@ def generate_runtime(
                 readme_template.read_text(encoding="utf-8"),
                 encoding="utf-8",
             )
-
-    # --- Install skills from the package ---
-    _install_skills(runtime_path)
-
-    return runtime_path
 
 
 def _install_skills(runtime_path: Path) -> None:

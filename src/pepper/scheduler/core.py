@@ -16,6 +16,7 @@ import yaml  # type: ignore[import-untyped]
 from apscheduler import AsyncScheduler
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -34,7 +35,9 @@ def load_seed_jobs(yaml_path: Path) -> dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
-def build_trigger(job_def: dict[str, Any]) -> IntervalTrigger | CronTrigger:
+def build_trigger(
+    job_def: dict[str, Any],
+) -> IntervalTrigger | CronTrigger | DateTrigger:
     """Build an APScheduler trigger from a job definition."""
     trigger_type = job_def["trigger"]
     schedule = job_def["schedule"]
@@ -54,6 +57,8 @@ def build_trigger(job_def: dict[str, Any]) -> IntervalTrigger | CronTrigger:
             month=schedule.get("month"),
             timezone=job_def.get("timezone", TIMEZONE),
         )
+    elif trigger_type == "date":
+        return DateTrigger(run_time=schedule["run_time"])
     else:
         raise ValueError(f"Unknown trigger type: {trigger_type}")
 
@@ -62,7 +67,7 @@ async def execute_function_job(name: str, module_path: str) -> None:
     """Execute a scheduled function job by importing and calling the function."""
     try:
         module_name, func_name = module_path.rsplit(":", 1)
-        import importlib  # noqa: PLC0415
+        import importlib
 
         module = importlib.import_module(module_name)
         func = getattr(module, func_name)
@@ -97,12 +102,14 @@ async def execute_job(name: str, prompt: str, channel_hint: str = "") -> None:
                 json=payload,
                 timeout=10.0,
             )
-            if resp.status_code == 200:  # noqa: PLR2004
+            if resp.status_code == 200:
                 log.info(f"Job {name} fired (chat_id: {chat_id})")
             else:
                 log.error(f"Job {name} failed: {resp.status_code} {resp.text}")
         except httpx.ConnectError:
             log.error(f"Job {name}: channel server unreachable")
+        except Exception as e:
+            log.error(f"Job {name} failed unexpectedly: {type(e).__name__}: {e}")
 
 
 async def create_scheduler() -> AsyncScheduler:
@@ -110,6 +117,13 @@ async def create_scheduler() -> AsyncScheduler:
     engine = create_async_engine(f"sqlite+aiosqlite:///{SCHEDULER_DB}")
     data_store = SQLAlchemyDataStore(engine)
     scheduler = AsyncScheduler(data_store=data_store)
+
+    # Allow concurrent job execution — execute_job is just a fast HTTP POST,
+    # the real work happens async in Pepper after the notification. Without
+    # this, APScheduler silently skips jobs when another is running.
+    await scheduler.configure_task(execute_job, max_running_jobs=None)
+    await scheduler.configure_task(execute_function_job, max_running_jobs=None)
+
     return scheduler
 
 

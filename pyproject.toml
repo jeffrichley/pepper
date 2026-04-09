@@ -12,6 +12,7 @@ dependencies = [
     "jinja2>=3.1.6",
     "mcp>=1.9.0",
     "psutil>=7.0.0",
+    "pykeepass>=4.1.1.post1",
     "pyqmd>=0.1.0",
     "python-dotenv>=1.2.2",
     "pyyaml>=6.0.3",
@@ -110,9 +111,17 @@ convention = "google"
     "ARG002",   # unused args required by discord.py (button in callbacks)
     "RUF006",   # asyncio.create_task without storing ref (fire-and-forget tasks)
 ]
-"src/pepper/scheduler/**/*.py" = ["TID252"]
-# Init generator uses deferred imports for optional dependencies
+"src/pepper/scheduler/**/*.py" = [
+    "TID252",   # relative imports by design (sub-package)
+    "PLC0415",  # deferred imports in job execution
+    "PLR0913",  # MCP tool callbacks and APScheduler APIs have many params
+    "PLR2004",  # HTTP status code comparisons
+    "ARG001",   # unused args required by APScheduler (server in lifespan)
+    "PLW0603",  # module-level globals for scheduler state (intentional)
+]
+# Init generator and CLI use deferred imports for optional/heavy dependencies
 "src/pepper/init/generator.py" = ["PLC0415"]
+"src/pepper/cli.py" = ["PLC0415"]
 # Channel server uses module-level globals for cross-thread state (intentional)
 "src/pepper/channel/server.py" = ["PLW0603"]
 # Skills contain standalone scripts not part of the main package

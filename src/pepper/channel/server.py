@@ -99,6 +99,13 @@ def _enqueue_notification(content: str, meta: dict[str, str]) -> None:
             _notification_queue.put_nowait,
             {"content": content, "meta": meta},
         )
+    else:
+        chat_id = meta.get("chat_id", "unknown")
+        log.warning(
+            f"Notification dropped (bridge not ready): {chat_id} "
+            f"(queue={'set' if _notification_queue else 'None'}, "
+            f"loop={'set' if _mcp_loop else 'None'})",
+        )
 
 
 # --- HTTP app (ASGI) ---

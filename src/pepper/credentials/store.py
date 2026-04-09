@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from pykeepass import PyKeePass, create_database
+from pykeepass import PyKeePass, create_database  # type: ignore[import-untyped]
 
 from pepper.credentials.models import Credential, CredentialSummary
 

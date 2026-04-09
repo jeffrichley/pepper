@@ -40,9 +40,9 @@ _scheduler: AsyncScheduler | None = None
 
 
 @asynccontextmanager
-async def lifespan(server: FastMCP) -> AsyncIterator[None]:  # noqa: ARG001
+async def lifespan(server: FastMCP) -> AsyncIterator[None]:
     """Start scheduler on MCP server startup."""
-    global _scheduler  # noqa: PLW0603
+    global _scheduler
 
     log.info("Starting Pepper Scheduler...")
 
@@ -68,7 +68,7 @@ mcp = FastMCP(
 
 
 @mcp.tool()
-async def create_job(  # noqa: PLR0913
+async def create_job(
     name: str,
     trigger: str,
     schedule: dict[str, Any],
@@ -80,9 +80,10 @@ async def create_job(  # noqa: PLR0913
 
     Args:
         name: Unique job identifier (snake_case).
-        trigger: Trigger type: "interval" or "cron".
+        trigger: Trigger type: "interval", "cron", or "date" (one-shot).
         schedule: For interval: {minutes, hours, seconds}.
             For cron: {hour, minute, day_of_week, day, month}.
+            For date: {run_time: "2026-04-10T09:00:00-04:00"} (ISO datetime).
         prompt: The prompt to send to Pepper when this job fires.
         channel_hint: Optional suggested Discord channel for context.
         timezone: Timezone for cron triggers (default: US/Eastern).

@@ -29,16 +29,16 @@ async def list_jobs_impl(scheduler: AsyncScheduler) -> list[dict[str, Any]]:
             "next_run": s.next_fire_time.isoformat() if s.next_fire_time else None,
             "paused": getattr(s, "paused", False),
         }
-        if s.args and len(s.args) >= 2:  # noqa: PLR2004
+        if s.args and len(s.args) >= 2:
             job_info["prompt"] = s.args[1]
-        if s.args and len(s.args) >= 3:  # noqa: PLR2004
+        if s.args and len(s.args) >= 3:
             job_info["channel_hint"] = s.args[2]
         result.append(job_info)
 
     return result
 
 
-async def create_job_impl(  # noqa: PLR0913
+async def create_job_impl(
     scheduler: AsyncScheduler,
     name: str,
     trigger: str,
@@ -85,8 +85,13 @@ def _resolve_trigger(
     """Build a new trigger from schedule dict, or reuse the existing one."""
     if not schedule:
         return existing_trigger
-    trigger_str = str(existing_trigger)
-    trigger_type = "interval" if "interval" in trigger_str.lower() else "cron"
+    trigger_str = str(existing_trigger).lower()
+    if "interval" in trigger_str:
+        trigger_type = "interval"
+    elif "date" in trigger_str:
+        trigger_type = "date"
+    else:
+        trigger_type = "cron"
     job_def = {
         "trigger": trigger_type,
         "schedule": schedule,
@@ -95,7 +100,7 @@ def _resolve_trigger(
     return build_trigger(job_def)
 
 
-async def update_job_impl(  # noqa: PLR0913
+async def update_job_impl(
     scheduler: AsyncScheduler,
     name: str,
     schedule: dict[str, Any] | None = None,

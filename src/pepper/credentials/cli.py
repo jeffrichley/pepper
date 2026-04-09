@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import typer
-from pykeepass import create_database
+from pykeepass import create_database  # type: ignore[import-untyped]
 from rich import print as rprint
 
 from pepper.credentials.store import CredentialStore
