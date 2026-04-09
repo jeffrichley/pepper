@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import pathlib
 import socket
@@ -136,34 +135,3 @@ def temp_vault(tmp_path):
     )
 
     return vault
-
-
-@pytest.fixture
-def mock_stdin_data():
-    """Create mock stdin JSON data for hooks."""
-
-    def _make(
-        session_id="test-session-123", transcript_path=None, hook_event="SessionStart"
-    ):
-        data = {
-            "session_id": session_id,
-            "transcript_path": transcript_path or "",
-            "cwd": os.getcwd(),
-            "hook_event_name": hook_event,
-        }
-        return json.dumps(data)
-
-    return _make
-
-
-@pytest.fixture
-def temp_transcript(tmp_path):
-    """Create a temporary transcript file."""
-    transcript = tmp_path / "transcript.txt"
-    transcript.write_text(
-        "User: What is the status of the Pepper project?\n"
-        "Assistant: The Pepper project is in the foundation phase.\n"
-        "User: Great, let's proceed with hooks.\n"
-        "Assistant: I'll start implementing the SessionStart hook.\n"
-    )
-    return transcript
