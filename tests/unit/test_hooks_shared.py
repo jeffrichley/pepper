@@ -1,8 +1,8 @@
-"""Tests for pepper.hooks.shared — vault path resolution and utilities."""
+"""Tests for pepper.hooks.shared — vault path resolution."""
 
 from pathlib import Path
 
-from pepper.hooks.shared import TIER_1_FILES, get_vault_path
+from pepper.hooks.shared import get_vault_path
 
 
 def test_vault_path_from_env(tmp_path, monkeypatch):
@@ -18,14 +18,3 @@ def test_vault_path_default(monkeypatch):
     monkeypatch.delenv("PEPPER_VAULT_PATH", raising=False)
     expected = Path.home() / ".pepper" / "Memory"
     assert get_vault_path() == expected
-
-
-def test_tier1_files_list():
-    """Tier 1 files list is correct."""
-    assert TIER_1_FILES == [
-        "IDENTITY.md",
-        "SOUL.md",
-        "USER.md",
-        "MEMORY.md",
-        "OPERATIONS.md",
-    ]
