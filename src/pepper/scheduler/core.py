@@ -116,15 +116,18 @@ async def create_scheduler() -> AsyncScheduler:
     """Create and configure the APScheduler instance."""
     engine = create_async_engine(f"sqlite+aiosqlite:///{SCHEDULER_DB}")
     data_store = SQLAlchemyDataStore(engine)
-    scheduler = AsyncScheduler(data_store=data_store)
+    return AsyncScheduler(data_store=data_store)
 
-    # Allow concurrent job execution — execute_job is just a fast HTTP POST,
-    # the real work happens async in Pepper after the notification. Without
-    # this, APScheduler silently skips jobs when another is running.
+
+async def configure_task_concurrency(scheduler: AsyncScheduler) -> None:
+    """Allow concurrent job execution for all task types.
+
+    execute_job is just a fast HTTP POST — the real work happens async
+    in Pepper after the notification. Without this, APScheduler silently
+    skips jobs when another is running (default max_running_jobs=1).
+    """
     await scheduler.configure_task(execute_job, max_running_jobs=None)
     await scheduler.configure_task(execute_function_job, max_running_jobs=None)
-
-    return scheduler
 
 
 async def seed_default_jobs(scheduler: AsyncScheduler, yaml_path: Path) -> None:

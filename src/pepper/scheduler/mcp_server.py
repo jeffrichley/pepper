@@ -17,7 +17,7 @@ from apscheduler import AsyncScheduler
 from mcp.server.fastmcp import FastMCP
 
 from .config import JOBS_YAML
-from .core import create_scheduler, seed_default_jobs
+from .core import configure_task_concurrency, create_scheduler, seed_default_jobs
 from .tools import (
     create_job_impl,
     delete_job_impl,
@@ -48,6 +48,7 @@ async def lifespan(server: FastMCP) -> AsyncIterator[None]:
 
     _scheduler = await create_scheduler()
     async with _scheduler:
+        await configure_task_concurrency(_scheduler)
         await seed_default_jobs(_scheduler, JOBS_YAML)
         await _scheduler.start_in_background()
         log.info("Scheduler started")
