@@ -26,6 +26,7 @@ VAULT_SCAFFOLD_DIRS = [
     "drafts/active",
     "drafts/sent",
     "tasks",
+    "playbooks",
 ]
 
 TIER_1_FILES = {
@@ -132,6 +133,16 @@ def generate_runtime(
         filepath = vault / filename
         if not filepath.exists():
             filepath.write_text(default_content, encoding="utf-8")
+
+    # Playbook README (only if not already present)
+    playbook_readme = vault / "playbooks" / "README.md"
+    if not playbook_readme.exists():
+        readme_template = Path(__file__).parent / "templates" / "playbook-README.md"
+        if readme_template.exists():
+            playbook_readme.write_text(
+                readme_template.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
 
     # --- Install skills from the package ---
     _install_skills(runtime_path)
