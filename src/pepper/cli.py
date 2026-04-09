@@ -23,6 +23,10 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+from pepper.credentials.cli import creds_app  # noqa: E402
+
+app.add_typer(creds_app, name="creds", help="Manage stored credentials.")
+
 
 @app.command()
 def init(
@@ -117,7 +121,7 @@ def _start_interactive(runtime_path: Path) -> None:
     """Launch Claude Code interactively in the runtime directory."""
     rprint(f"[green]Starting Pepper at {runtime_path}...[/green]")
     env = _load_env(runtime_path)
-    result = subprocess.run(  # noqa: PLW1510
+    result = subprocess.run(
         [
             "claude",
             "--continue",
@@ -127,6 +131,7 @@ def _start_interactive(runtime_path: Path) -> None:
         ],
         cwd=str(runtime_path),
         env=env,
+        check=False,
     )
     raise typer.Exit(result.returncode)
 
@@ -145,8 +150,8 @@ def _start_background(runtime_path: Path) -> None:
         [
             "claude",
             "--dangerously-skip-permissions",
-            "--channels",
-            "plugin:discord@claude-plugins-official",
+            "--dangerously-load-development-channels",
+            "server:pepper-channel",
             "-p",
             "You are Pepper. Monitor Discord and handle scheduled tasks.",
         ],
@@ -163,7 +168,7 @@ def _start_background(runtime_path: Path) -> None:
 @app.command()
 def stop() -> None:
     """Stop a background Pepper instance."""
-    from pepper.process import kill_process_tree  # noqa: PLC0415
+    from pepper.process import kill_process_tree
 
     pid_file = get_pid_file()
     pid = read_pid(pid_file)
