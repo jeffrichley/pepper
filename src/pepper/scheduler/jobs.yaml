@@ -34,3 +34,11 @@ nightly_reflection:
     Memory/daily/summaries/YYYY-MM-DD.md. Identify patterns, decisions made,
     and open loops. Send a brief summary to pepper-chat Discord channel.
   channel_hint: "#pepper-chat"
+
+vault_backup:
+  trigger: cron
+  schedule:
+    hour: 4
+    minute: 0
+  type: function
+  function: "pepper.backup:backup_vault"
