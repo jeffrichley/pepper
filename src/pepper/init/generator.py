@@ -101,12 +101,19 @@ def generate_runtime(
     template = env.get_template("CLAUDE.md.j2")
     (runtime_path / "CLAUDE.md").write_text(template.render())
 
-    # .mcp.json — use the project root (where pyproject.toml lives)
-    # __file__ is src/pepper/init/generator.py, project root is 3 levels up
-    # Use as_posix() so JSON doesn't break on Windows backslashes
-    project_path = Path(__file__).resolve().parent.parent.parent.parent.as_posix()
-    template = env.get_template("mcp.json.j2")
-    (runtime_path / ".mcp.json").write_text(template.render(project_path=project_path))
+    # .mcp.json — detect if running from source repo or global install
+    # If pyproject.toml exists 4 levels up, we're in the source repo
+    # Otherwise pepper is installed globally and executables are on PATH
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    if (project_root / "pyproject.toml").exists():
+        project_path = project_root.as_posix()
+        template = env.get_template("mcp.json.j2")
+        (runtime_path / ".mcp.json").write_text(
+            template.render(project_path=project_path)
+        )
+    else:
+        template = env.get_template("mcp-installed.json.j2")
+        (runtime_path / ".mcp.json").write_text(template.render())
 
     # config.toml
     template = env.get_template("config.toml.j2")
