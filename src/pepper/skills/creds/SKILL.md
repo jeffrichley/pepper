@@ -1,6 +1,6 @@
 ---
 name: creds
-description: Retrieve stored credentials for external services. Use when a playbook or task requires authentication — logging into a website, API keys, service credentials. Also use when Jeff asks you to check what credentials are available or when a workflow fails due to missing authentication.
+description: Retrieve stored credentials for external services. Use when a playbook or task requires authentication — logging into a website, service credentials. Also use when Jeff asks you to check what credentials are available or when a workflow fails due to missing authentication.
 ---
 
 # Credentials
@@ -68,14 +68,6 @@ This is the most common pattern — logging into a website on Jeff's behalf.
 7. Proceed with the task...
 ```
 
-## Using Credentials with APIs
-
-For services with API keys or tokens stored as credentials:
-
-1. Retrieve the credential: `pepper creds get <service> --json`
-2. Use the password field as the API key/token in your request
-3. The notes field may contain additional context (base URL, API version, etc.)
-
 ## Playbook Pattern
 
 Playbooks live in `Memory/playbooks/` and reference credentials by service name. When following a playbook that mentions credentials, use the exact service name specified.
@@ -87,7 +79,7 @@ A well-structured playbook looks like:
 **Goal:** What this accomplishes
 
 1. Run `pepper creds get <service> --json` to retrieve login credentials
-2. [Browser/API steps using those credentials]
+2. [Browser steps using those credentials]
 3. [Task-specific actions]
 4. [Where to send results — Discord channel, vault file, etc.]
 ```
@@ -107,7 +99,7 @@ These are **hard rules** — never break them:
 - **NEVER** echo, print, repeat, or include passwords in conversation text, Discord messages, or any visible output
 - **NEVER** write passwords to files, vault, transcripts, daily logs, or Memory/
 - **NEVER** include passwords in tool call arguments that get logged (e.g., don't put a password in a Discord message)
-- **DO** pass credentials directly from the Bash tool result to the action that needs them (browser form fill, API header)
+- **DO** pass credentials directly from the Bash tool result to the action that needs them (browser form fill)
 - **DO** treat the entire `--json` output as sensitive — don't quote it back to Jeff
 - If Jeff asks "what's my password for X" — tell him to run `pepper creds get X` himself, don't retrieve and display it
 
