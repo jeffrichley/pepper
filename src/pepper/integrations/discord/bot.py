@@ -415,6 +415,22 @@ async def _remove_ack_reaction(
         await original.remove_reaction(ack_emoji, client.user)
 
 
+async def _deliver_reply(
+    channel: Messageable, text: str, metadata: dict[str, Any]
+) -> bool:
+    """Send text/embed/files to the channel. Returns True if anything was sent."""
+    embed = build_embed(metadata.get("embed"))
+    files = _prepare_file_attachments(metadata)
+
+    if text:
+        await _send_text_reply(channel, text, embed, files)
+        return True
+    if embed or files:
+        await _send_embed_or_files(channel, embed, files)
+        return True
+    return False
+
+
 async def handle_reply(data: dict[str, Any]) -> None:
     """Process a reply from the channel server and send it to Discord."""
     chat_id = data.get("chat_id", "")
@@ -446,15 +462,9 @@ async def handle_reply(data: dict[str, Any]) -> None:
     if reply_type == "reaction":
         return
 
-    embed = build_embed(metadata.get("embed"))
-    files = _prepare_file_attachments(metadata)
-
-    if text:
-        await _send_text_reply(channel, text, embed, files)
-    else:
-        await _send_embed_or_files(channel, embed, files)
-
-    await _remove_ack_reaction(channel, original_message_id)
+    sent = await _deliver_reply(channel, text, metadata)
+    if sent:
+        await _remove_ack_reaction(channel, original_message_id)
 
 
 # Common emoji name -> unicode mapping
