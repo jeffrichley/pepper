@@ -632,3 +632,52 @@ async def download_attachments_impl(
         "message": f"Downloaded {len(downloaded)} attachment(s)",
         "files": downloaded,
     }
+
+
+async def create_channel_impl(
+    client: discord.Client,
+    guild_id: str,
+    name: str,
+    category: str | None = None,
+    topic: str | None = None,
+) -> dict[str, str]:
+    """Create a new text channel in a Discord guild.
+
+    Args:
+        client: Discord client instance.
+        guild_id: The guild (server) ID to create the channel in.
+        name: Channel name (will be lowercased and hyphenated by Discord).
+        category: Optional category name to place the channel under.
+        topic: Optional channel topic/description.
+    """
+    guild = client.get_guild(int(guild_id))
+    if guild is None:
+        try:
+            guild = await client.fetch_guild(int(guild_id))
+        except (discord.NotFound, discord.Forbidden):
+            return {"status": "error", "message": f"Guild {guild_id} not found"}
+
+    category_obj: discord.CategoryChannel | None = None
+    if category:
+        for cat in guild.categories:
+            if cat.name.lower() == category.lower():
+                category_obj = cat
+                break
+        if category_obj is None:
+            # Create the category if it doesn't exist
+            category_obj = await guild.create_category(name=category)
+
+    kwargs: dict[str, Any] = {"name": name}
+    if topic:
+        kwargs["topic"] = topic
+    if category_obj:
+        kwargs["category"] = category_obj
+
+    channel = await guild.create_text_channel(**kwargs)
+
+    return {
+        "status": "created",
+        "channel_id": str(channel.id),
+        "name": channel.name,
+        "category": category_obj.name if category_obj else "",
+    }

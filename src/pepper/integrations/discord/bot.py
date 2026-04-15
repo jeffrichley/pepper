@@ -197,6 +197,47 @@ async def on_message(message: discord.Message) -> None:
             )
 
 
+@client.event
+async def on_reaction_add(reaction: discord.Reaction, user: discord.User) -> None:
+    """Forward user reactions to the channel server."""
+    if user == client.user or user.bot:
+        return
+
+    # Don't forward the ack emoji — that's our own reaction
+    ack_emoji = _access_config.get("ackReaction", "")
+    if str(reaction.emoji) == ack_emoji:
+        return
+
+    message = reaction.message
+    chat_id = (
+        f"discord-{message.guild.id}-{message.channel.id}-{message.id}"
+        if message.guild
+        else f"discord-dm-{message.channel.id}-{message.id}"
+    )
+
+    payload = {
+        "source": "discord",
+        "chat_id": chat_id,
+        "sender": user.display_name,
+        "content": f"[reacted with {reaction.emoji}]",
+        "metadata": {
+            "type": "reaction",
+            "emoji": str(reaction.emoji),
+            "guild_id": str(message.guild.id) if message.guild else "",
+            "channel_id": str(message.channel.id),
+            "message_id": str(message.id),
+            "author_id": str(user.id),
+        },
+    }
+
+    async with httpx.AsyncClient() as http:
+        try:
+            await http.post(f"{CHANNEL_URL}/message", json=payload, timeout=10.0)
+            log.info(f"Forwarded reaction {reaction.emoji} from {user.display_name}")
+        except httpx.ConnectError:
+            log.warning("Channel server unreachable for reaction forwarding")
+
+
 async def listen_for_replies() -> None:
     """Connect to the channel server SSE stream and relay replies to Discord."""
     backoff = 1.0
@@ -361,6 +402,19 @@ async def _send_embed_or_files(
         _track_bot_message(msg.id)
 
 
+async def _remove_ack_reaction(
+    channel: Messageable, original_message_id: int | None
+) -> None:
+    """Remove the ack reaction (e.g., 👀) from the original message after replying."""
+    ack_emoji = _access_config.get("ackReaction", "")
+    if not ack_emoji or not original_message_id:
+        return
+    with contextlib.suppress(Exception):
+        original = await channel.fetch_message(original_message_id)
+        assert client.user is not None
+        await original.remove_reaction(ack_emoji, client.user)
+
+
 async def handle_reply(data: dict[str, Any]) -> None:
     """Process a reply from the channel server and send it to Discord."""
     chat_id = data.get("chat_id", "")
@@ -399,6 +453,8 @@ async def handle_reply(data: dict[str, Any]) -> None:
         await _send_text_reply(channel, text, embed, files)
     else:
         await _send_embed_or_files(channel, embed, files)
+
+    await _remove_ack_reaction(channel, original_message_id)
 
 
 # Common emoji name -> unicode mapping

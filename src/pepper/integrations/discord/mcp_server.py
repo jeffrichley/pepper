@@ -364,6 +364,26 @@ async def download_attachments(
     return await download_attachments_impl(client, channel_id, message_id)
 
 
+@mcp.tool()
+async def create_channel(
+    guild_id: str,
+    name: str,
+    category: str | None = None,
+    topic: str | None = None,
+) -> dict[str, str]:
+    """Create a new text channel in a Discord guild.
+
+    Args:
+        guild_id: The guild (server) ID.
+        name: Channel name (Discord will lowercase and hyphenate).
+        category: Optional category name to place channel under (created if missing).
+        topic: Optional channel topic/description.
+    """
+    from .discord_tools import create_channel_impl
+
+    return await create_channel_impl(client, guild_id, name, category, topic)
+
+
 def run() -> None:
     """Entry point for pepper-discord command."""
     mcp.run(transport="stdio")
