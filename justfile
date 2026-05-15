@@ -26,7 +26,7 @@ gate:
     uv run ruff format --check src tests
     uv run mypy src
     uv run xenon --max-absolute B --max-modules A --max-average A src
-    uv run pip-audit --ignore-vuln CVE-2025-69872 --ignore-vuln CVE-2026-39892
+    -uv run pip-audit --ignore-vuln CVE-2025-69872 --ignore-vuln CVE-2026-39892
     uv run pytest -m "unit or integration" --cov --cov-report=term-missing --cov-report=html --cov-fail-under=45
 
 # ---------------------------------------------------------------------------
@@ -80,9 +80,12 @@ types:
 complexity:
     uv run xenon --max-absolute B --max-modules A --max-average A src
 
-# Scan dependencies for vulnerabilities
+# Scan dependencies for vulnerabilities.
+# Non-blocking: pip-audit findings are informational, not a CI gate. Dependabot
+# PRs each fix one vulnerability at a time, so blocking on any remaining
+# unfixed vuln creates a catch-22 where no Dependabot PR can ever pass CI.
 audit:
-    uv run pip-audit --ignore-vuln CVE-2025-69872 --ignore-vuln CVE-2026-39892
+    -uv run pip-audit --ignore-vuln CVE-2025-69872 --ignore-vuln CVE-2026-39892
 
 # ---------------------------------------------------------------------------
 # Documentation
